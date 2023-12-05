@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	metadata "github.com/checkpoint-restore/checkpointctl/lib"
 	"io"
 	"time"
 
@@ -49,7 +50,37 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 	if err != nil {
 		return nil, fmt.Errorf("get container info: %w", err)
 	}
+	if cntr.Restore {
+		//todo update config.json
+		// If the create command found a checkpoint image, the container
+		// has the restore flag set to true. At this point we need to jump
+		// into the restore code.
+		log.G(ctx).Debugf("Restoring container %q", r.ContainerId)
+		//c.client.Restore(ctx, cntr.ID, cntr.ImageRef)
+		ctr, err := c.ContainerRestore(
+			ctx,
+			&metadata.ContainerConfig{
+				ID: cntr.ID,
+			},
+		)
+		if err != nil {
+			//ociContainer, err1 := s.GetContainerFromShortID(ctx, c.ID())
+			//if err1 != nil {
+			//	return nil, fmt.Errorf("failed to find container %s: %v", cntr.ID), err1)
+			//}
+			//s.ReleaseContainerName(ctx, ociContainer.Name())
+			//err2 := s.StorageRuntimeServer().DeleteContainer(ctx, c.ID())
+			//if err2 != nil {
+			//	log.Warnf(ctx, "Failed to cleanup container directory: %v", err2)
+			//}
+			//s.removeContainer(ctx, ociContainer)
+			log.G(ctx).WithError(err).Errorf("Failed to restore container %q", cntr.ID)
+			//return nil, err
+		}
 
+		log.G(ctx).Infof("Restored container: %s", ctr)
+		//return &types.StartContainerResponse{}, nil
+	}
 	id := cntr.ID
 	meta := cntr.Metadata
 	container := cntr.Container
@@ -123,6 +154,9 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 	taskOpts := c.taskOpts(ctrInfo.Runtime.Name)
 	if ociRuntime.Path != "" {
 		taskOpts = append(taskOpts, containerd.WithRuntimePath(ociRuntime.Path))
+	}
+	if cntr.Restore {
+		taskOpts = append(taskOpts, containerd.WithRestoreImagePath(c.getContainerRootDir(id)))
 	}
 	task, err := container.NewTask(ctx, ioCreation, taskOpts...)
 	if err != nil {

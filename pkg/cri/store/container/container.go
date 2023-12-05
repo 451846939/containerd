@@ -49,6 +49,10 @@ type Container struct {
 	IsStopSignaledWithTimeout *uint32
 	// Stats contains (mutable) stats for the container
 	Stats *stats.ContainerStats
+
+	Restore           bool
+	RestoreArchive    string
+	RestoreIsOCIImage bool
 }
 
 // Opts sets specific information to newly created Container.
