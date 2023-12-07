@@ -36,7 +36,7 @@ func (s *criService) checkIfCheckpointImage(ctx context.Context, input string) (
 		log.G(ctx).Errorf("Failed to get image status of %q: %v", input, err)
 		return false, err
 	}
-
+	log.G(ctx).Infof("Found checkpoint of container %v in %v", imageStatusRespone.Image, input)
 	if imageStatusRespone == nil ||
 		imageStatusRespone.Image == nil ||
 		imageStatusRespone.Image.Spec == nil ||
@@ -47,7 +47,7 @@ func (s *criService) checkIfCheckpointImage(ctx context.Context, input string) (
 
 	ann, ok := imageStatusRespone.Image.Spec.Annotations[annotations.CheckpointAnnotationName]
 	if !ok {
-		log.G(ctx).Infof("No checkpoint found in %v", input)
+		log.G(ctx).Infof("No checkpoint found CheckpointAnnotationName in %v", input)
 		return false, nil
 	}
 
