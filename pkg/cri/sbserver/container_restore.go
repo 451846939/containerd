@@ -72,11 +72,11 @@ func (c *criService) CRImportCheckpoint(
 	createMounts := createConfig.Mounts
 	createAnnotations := createConfig.Annotations
 	createLabels := createConfig.Labels
-
 	checkpointIsOCIImage, err := c.checkIfCheckpointImage(ctx, input)
 	if err != nil {
 		return nil, nil, err
 	}
+	createAnnotations[annotations.CheckpointAnnotationName] = "checkpoint"
 
 	if checkpointIsOCIImage {
 		log.G(ctx).Debugf("Restoring from image \n", input)

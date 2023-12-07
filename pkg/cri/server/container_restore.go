@@ -77,6 +77,7 @@ func (c *criService) CRImportCheckpoint(
 	if err != nil {
 		return nil, nil, err
 	}
+	createAnnotations[annotations.CheckpointAnnotationName] = "checkpoint"
 
 	if checkpointIsOCIImage {
 		log.G(ctx).Debugf("Restoring from image \n", input)
