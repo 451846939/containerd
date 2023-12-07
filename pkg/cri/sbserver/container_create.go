@@ -72,7 +72,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 			return true, nil
 		}
 		// Check if this is an OCI checkpoint image
-		ok, err := c.checkIfCheckpointImage(ctx, config.Image.Image)
+		ok, err := c.checkIfCheckpointImage(ctx, config.Image.Image, config.Image.Annotations)
 		if err != nil {
 			log.G(ctx).Errorf("Failed to check if this is a checkpoint image: %v", err)
 			return false, fmt.Errorf("failed to check if this is a checkpoint image: %w", err)
