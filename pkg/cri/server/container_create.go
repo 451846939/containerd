@@ -57,7 +57,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 			config.Image == nil ||
 			r.SandboxConfig == nil ||
 			r.SandboxConfig.Metadata == nil {
-			log.G(ctx).Infof("not checkpointImage %v", config)
+			log.G(ctx).Infof("not checkpointImage %v", r)
 			return false, nil
 		}
 		if _, err := os.Stat(config.Image.Image); err == nil {
