@@ -58,11 +58,10 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	config := r.GetConfig()
 	//todo  add checkpoint
 	checkpointImage, err := func() (bool, error) {
-		if config != nil ||
+		if config == nil ||
 			config.Image == nil ||
 			r.SandboxConfig == nil ||
 			r.SandboxConfig.Metadata == nil {
-			log.G(ctx).Infof("not checkpointImage %v SandboxConfig : %v", r, r.SandboxConfig)
 			return false, nil
 		}
 		if _, err := os.Stat(config.Image.Image); err == nil {
