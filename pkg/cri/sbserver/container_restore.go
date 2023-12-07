@@ -21,6 +21,7 @@ import (
 
 func (s *criService) checkIfCheckpointImage(ctx context.Context, input string) (bool, error) {
 	if _, err := os.Stat(input); err == nil {
+		log.G(ctx).Errorf("Image %q is a local file, not a checkpoint", input)
 		return false, nil
 	}
 	imageStatusRespone, err := s.ImageStatus(
@@ -32,6 +33,7 @@ func (s *criService) checkIfCheckpointImage(ctx context.Context, input string) (
 		},
 	)
 	if err != nil {
+		log.G(ctx).Errorf("Failed to get image status of %q: %v", input, err)
 		return false, err
 	}
 
@@ -77,7 +79,7 @@ func (c *criService) CRImportCheckpoint(
 		return nil, nil, err
 	}
 	createAnnotations[annotations.CheckpointAnnotationName] = "checkpoint"
-	log.G(ctx).Info("checkpointIsOCIImage %v", checkpointIsOCIImage)
+	log.G(ctx).Infof("checkpointIsOCIImage %v", checkpointIsOCIImage)
 	if checkpointIsOCIImage {
 		log.G(ctx).Debugf("Restoring from image \n", input)
 		//c.client.ImageService()

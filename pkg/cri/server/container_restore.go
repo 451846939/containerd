@@ -21,6 +21,7 @@ import (
 
 func (s *criService) checkIfCheckpointImage(ctx context.Context, input string) (bool, error) {
 	if _, err := os.Stat(input); err == nil {
+		log.G(ctx).Errorf("Image %q is a local file, not a checkpoint", input)
 		return false, nil
 	}
 	imageStatusRespone, err := s.ImageStatus(
@@ -32,9 +33,9 @@ func (s *criService) checkIfCheckpointImage(ctx context.Context, input string) (
 		},
 	)
 	if err != nil {
+		log.G(ctx).Errorf("Failed to get image status of %q: %v", input, err)
 		return false, err
 	}
-
 	if imageStatusRespone == nil ||
 		imageStatusRespone.Image == nil ||
 		imageStatusRespone.Image.Spec == nil ||
