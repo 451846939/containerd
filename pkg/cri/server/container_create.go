@@ -78,7 +78,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	log.G(ctx).Debugf("Container config %+v", config)
 	sandboxConfig := r.GetSandboxConfig()
 	var ctrId *string
-	log.L.Info("checkpointImage", checkpointImage)
+	log.G(ctx).Infof("checkpointImage %v", checkpointImage)
 	if checkpointImage {
 		//todo restore
 		sandboxConfig, config, err = c.CRImportCheckpoint(ctx, config, sandboxConfig.GetMetadata().Uid, ctrId)
