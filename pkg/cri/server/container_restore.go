@@ -40,6 +40,7 @@ func (s *criService) checkIfCheckpointImage(ctx context.Context, input string) (
 		imageStatusRespone.Image == nil ||
 		imageStatusRespone.Image.Spec == nil ||
 		imageStatusRespone.Image.Spec.Annotations == nil {
+		log.G(ctx).Infof("No checkpoint found in %v", input)
 		return false, nil
 	}
 
