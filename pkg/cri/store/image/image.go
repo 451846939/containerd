@@ -19,6 +19,7 @@ package image
 import (
 	"context"
 	"fmt"
+	"github.com/containerd/containerd/log"
 	"sync"
 
 	"github.com/containerd/containerd"
@@ -80,6 +81,7 @@ func (s *Store) Update(ctx context.Context, ref string) error {
 	}
 	var img *Image
 	if err == nil {
+		log.G(ctx).Infof("get image info from containerd: %v , ref: %v", i, ref)
 		img, err = getImage(ctx, i)
 		if err != nil {
 			return fmt.Errorf("get image info from containerd: %w", err)
@@ -135,6 +137,7 @@ func getImage(ctx context.Context, i containerd.Image) (*Image, error) {
 	id := desc.Digest.String()
 
 	spec, err := i.Spec(ctx)
+	log.G(ctx).Infof("spec: %v", spec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OCI image spec: %w", err)
 	}
