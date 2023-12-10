@@ -36,6 +36,7 @@ import (
 func (c *criService) ImageStatus(ctx context.Context, r *runtime.ImageStatusRequest) (*runtime.ImageStatusResponse, error) {
 	span := tracing.SpanFromContext(ctx)
 	image, err := c.localResolve(r.GetImage().GetImage())
+	log.G(ctx).Infof("localResolve ImageStatus: %v", image)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
 			span.AddEvent(err.Error())
@@ -49,7 +50,9 @@ func (c *criService) ImageStatus(ctx context.Context, r *runtime.ImageStatusRequ
 	// doesn't exist?
 
 	runtimeImage := toCRIImage(image)
+	log.G(ctx).Infof("toCRIImage ImageStatus: %v", runtimeImage)
 	info, err := c.toCRIImageInfo(ctx, &image, r.GetVerbose())
+	log.G(ctx).Infof("toCRIImageInfo ImageStatus: %v", info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate image info: %w", err)
 	}
