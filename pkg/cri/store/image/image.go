@@ -46,6 +46,8 @@ type Image struct {
 	Size int64
 	// ImageSpec is the oci image structure which describes basic information about the image.
 	ImageSpec imagespec.Image
+	// Annotations contains arbitrary metadata relating to the targeted content.
+	Annotations map[string]string
 }
 
 // Store stores all images.
@@ -135,7 +137,8 @@ func getImage(ctx context.Context, i containerd.Image) (*Image, error) {
 	}
 
 	id := desc.Digest.String()
-
+	annotations := desc.Annotations
+	log.G(ctx).Infof("desc: %v", desc)
 	spec, err := i.Spec(ctx)
 	log.G(ctx).Infof("spec: %v", spec)
 	if err != nil {
@@ -143,11 +146,12 @@ func getImage(ctx context.Context, i containerd.Image) (*Image, error) {
 	}
 
 	return &Image{
-		ID:         id,
-		References: []string{i.Name()},
-		ChainID:    chainID.String(),
-		Size:       size,
-		ImageSpec:  spec,
+		ID:          id,
+		References:  []string{i.Name()},
+		ChainID:     chainID.String(),
+		Size:        size,
+		ImageSpec:   spec,
+		Annotations: annotations,
 	}, nil
 }
 
