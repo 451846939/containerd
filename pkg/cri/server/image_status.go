@@ -56,11 +56,11 @@ func (c *criService) ImageStatus(ctx context.Context, r *runtime.ImageStatusRequ
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate image info: %w", err)
 	}
-	var ptr *runtime.ImageSpec
+	ptr := &runtime.ImageSpec{}
+	//var ptr *runtime.ImageSpec
 	//ptr.Image = image.References
 	ptr.Annotations = image.Annotations
 	runtimeImage.Spec = ptr
-	//imageSpec := NewImageSpec(ptr)
 	return &runtime.ImageStatusResponse{
 		Image: runtimeImage,
 		Info:  info,
