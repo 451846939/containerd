@@ -19,6 +19,7 @@ package image
 import (
 	"context"
 	"fmt"
+	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/log"
 	"sync"
 
@@ -125,7 +126,15 @@ func getImage(ctx context.Context, i containerd.Image) (*Image, error) {
 		return nil, fmt.Errorf("get image diffIDs: %w", err)
 	}
 	chainID := imageidentity.ChainID(diffIDs)
-
+	cs := i.ContentStore()
+	manifest, err := images.Manifest(ctx, cs, i.Target(), i.Platform())
+	var annotations map[string]string
+	if err != nil {
+		log.G(ctx).Errorf("failed to get manifest: %v", err)
+	} else {
+		log.G(ctx).Infof("manifest: %v", manifest)
+		annotations = manifest.Annotations
+	}
 	size, err := i.Size(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get image compressed resource size: %w", err)
@@ -137,7 +146,6 @@ func getImage(ctx context.Context, i containerd.Image) (*Image, error) {
 	}
 
 	id := desc.Digest.String()
-	annotations := desc.Annotations
 	log.G(ctx).Infof("desc: %v", desc)
 	spec, err := i.Spec(ctx)
 	log.G(ctx).Infof("spec: %v", spec)
