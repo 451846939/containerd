@@ -82,9 +82,9 @@ func (c *criService) CRImportCheckpoint(
 		return nil, nil, err
 	}
 	createAnnotations[annotations.CheckpointAnnotationName] = "checkpoint"
-	log.G(ctx).Infof("checkpointIsOCIImage %v", checkpointIsOCIImage)
+	log.G(ctx).Infof("checkpointIsOCIImage %v ", checkpointIsOCIImage)
 	if checkpointIsOCIImage {
-		log.G(ctx).Debugf("Restoring from image \n", input)
+		log.G(ctx).Infof("Restoring from image %v \n", input)
 		//c.client.ImageService()
 		//mounts, err = c.Prepare(ctx, target, chainID)
 		//mount.All()
