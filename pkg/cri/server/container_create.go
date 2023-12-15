@@ -89,7 +89,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 		//print ctrId
 		log.G(ctx).Debugf("container id %v ", ctrId)
 		//return &runtime.CreateContainerResponse{ContainerId: id}, nil
-
+		log.G(ctx).Infof("checkpointImage ok create sandbox ", checkpointImage)
 	}
 	sandbox, err := c.sandboxStore.Get(r.GetPodSandboxId())
 	if err != nil {

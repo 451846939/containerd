@@ -365,7 +365,7 @@ func (c *criService) mountPoint(ref string, target string, ctx context.Context) 
 			return err
 		}
 	}
-
+	log.G(ctx).Infof("mounts %v", mounts)
 	if err := mount.All(mounts, target); err != nil {
 		if err := s.Remove(ctx, target); err != nil && !errdefs.IsNotFound(err) {
 			log.G(ctx).Errorf("Error cleaning up snapshot after mount error: %v", err)
