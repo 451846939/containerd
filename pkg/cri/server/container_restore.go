@@ -121,8 +121,17 @@ func (c *criService) CRImportCheckpoint(
 		//if err != nil {
 		//	return "", err
 		//}
-		c.mountPoint(input, mountPoint, ctx)
-		defer c.unMount(mountPoint, ctx)
+		err := c.mountPoint(input, mountPoint, ctx)
+		if err != nil {
+			log.G(ctx).Errorf("Failed to mount %q: %v", input, err)
+			return nil, nil, err
+		}
+		defer func(c *criService, target string, ctx context.Context) {
+			err := c.unMount(target, ctx)
+			if err != nil {
+				log.G(ctx).Errorf("Failed to unmount %q: %v", target, err)
+			}
+		}(c, mountPoint, ctx)
 	}
 
 	// Load spec.dump from temporary directory
