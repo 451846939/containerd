@@ -34,10 +34,12 @@ func (c *criService) ContainerRestore(
 
 	task, err := ctr.Container.Task(ctx, nil)
 	if err != nil {
+		log.G(ctx).Errorf("Failed to get task for container %s: %v", ctr.ID, err)
 		return "", err
 	}
 	status, err := task.Status(ctx)
 	if err != nil {
+		log.G(ctx).Errorf("Failed to get status for container %s: %v", ctr.ID, err)
 		return "", err
 	}
 	if status.Status == containerd.Running {

@@ -75,7 +75,7 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 			//}
 			//s.removeContainer(ctx, ociContainer)
 			log.G(ctx).WithError(err).Errorf("Failed to restore container %q", cntr.ID)
-			//return nil, err
+			return nil, err
 		}
 
 		log.G(ctx).Infof("Restored container: %s", ctr)
