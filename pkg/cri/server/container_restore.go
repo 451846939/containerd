@@ -317,7 +317,11 @@ func (c *criService) mountPoint(ref string, target string, ctx context.Context) 
 
 	defer func() {
 		if retErr != nil && done != nil {
-			done(ctx)
+			err := done(ctx)
+			if err != nil {
+				log.G(ctx).Errorf("Failed to done %q: %v", target, err)
+				return
+			}
 		}
 	}()
 
