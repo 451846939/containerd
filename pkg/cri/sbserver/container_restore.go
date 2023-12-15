@@ -321,7 +321,7 @@ func (c *criService) mountPoint(ref string, target string, ctx context.Context) 
 	}()
 
 	//ps := context.String("platform")
-	ps := ""
+	ps := platforms.DefaultString()
 	p, err := platforms.Parse(ps)
 	if err != nil {
 		return fmt.Errorf("unable to parse platform %c: %w", ps, err)
