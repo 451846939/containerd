@@ -269,7 +269,7 @@ func (c *criService) CRImportCheckpoint(
 		containerConfig.Mounts = append(containerConfig.Mounts, mount)
 
 	}
-
+	log.G(ctx).Infof("restore c.sandboxStore.Get %v", sbID)
 	sb, retErr := c.sandboxStore.Get(sbID)
 	if retErr != nil {
 		return nil, nil, retErr
