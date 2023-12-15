@@ -272,6 +272,7 @@ func (c *criService) CRImportCheckpoint(
 	log.G(ctx).Infof("restore c.sandboxStore.Get %v", sbID)
 	sb, retErr := c.sandboxStore.Get(sbID)
 	if retErr != nil {
+		log.G(ctx).Errorf("Failed to get sandbox %q: %v", sbID, retErr)
 		return nil, nil, retErr
 	}
 
