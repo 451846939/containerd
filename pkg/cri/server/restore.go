@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/archive"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/pkg/cri/annotations"
@@ -32,19 +31,19 @@ func (c *criService) ContainerRestore(
 		return "", fmt.Errorf("failed to find container %s: %w", config.ID, err)
 	}
 
-	task, err := ctr.Container.Task(ctx, nil)
-	if err != nil {
-		log.G(ctx).Errorf("Failed to get task for container %s: %v", ctr.ID, err)
-		return "", err
-	}
-	status, err := task.Status(ctx)
-	if err != nil {
-		log.G(ctx).Errorf("Failed to get status for container %s: %v", ctr.ID, err)
-		return "", err
-	}
-	if status.Status == containerd.Running {
-		return "", fmt.Errorf("cannot restore running container %s", ctr.Name)
-	}
+	//task, err := ctr.Container.Task(ctx, nil)
+	//if err != nil {
+	//	log.G(ctx).Errorf("Failed to get task for container %s: %v", ctr.ID, err)
+	//	return "", err
+	//}
+	//status, err := task.Status(ctx)
+	//if err != nil {
+	//	log.G(ctx).Errorf("Failed to get status for container %s: %v", ctr.ID, err)
+	//	return "", err
+	//}
+	//if status.Status == containerd.Running {
+	//	return "", fmt.Errorf("cannot restore running container %s", ctr.Name)
+	//}
 
 	// Get config.json
 	// This file is generated twice by earlier code. Once in BundlePath() and
