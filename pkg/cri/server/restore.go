@@ -78,12 +78,12 @@ func (c *criService) ContainerRestore(
 	}
 	if ctr.RestoreArchive != "" {
 		if ctr.RestoreIsOCIImage {
-			log.G(ctx).Debugf("Restoring from %v", ctr.RestoreArchive)
+			log.G(ctx).Infof("Restoring from %v", ctr.RestoreArchive)
 			imageMountPoint, err := c.mountTMPPoint(ctr.RestoreArchive, ctx)
 			if err != nil {
 				return "", err
 			}
-			logrus.Debugf("Checkpoint image mounted at %v", imageMountPoint)
+			log.G(ctx).Infof("Checkpoint image mounted at %v", imageMountPoint)
 			defer func() {
 				err := c.unMount(imageMountPoint, ctx)
 				if err != nil {
@@ -338,13 +338,15 @@ func (c *criService) ContainerRestore(
 
 func (c *criService) restoreFileSystemChanges(ctx context.Context, ctr containerstore.Container, mountPoint string) error {
 	dir := c.getContainerRootDir(ctr.ID)
+	log.G(ctx).Infof("restoreFileSystemChanges Restoring root file-system changes from %s", dir)
+	listFiles(ctx, dir)
 	if err := CRApplyRootFsDiffTar(ctx, dir, mountPoint); err != nil {
 		return err
 	}
 
-	if err := CRRemoveDeletedFiles(ctr.ID, dir, mountPoint); err != nil {
-		return err
-	}
+	//if err := CRRemoveDeletedFiles(ctr.ID, dir, mountPoint); err != nil {
+	//	return err
+	//}
 	return nil
 }
 
