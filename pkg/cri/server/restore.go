@@ -50,12 +50,7 @@ func (c *criService) ContainerRestore(
 	// once in Dir(). This code takes the version from Dir(), modifies it and
 	// overwrites both versions (Dir() and BundlePath())
 	dir := c.getContainerRootDir(ctr.ID)
-	//show dir file
-	listFiles(ctx, dir)
-	ctrSpec, err := generate.NewFromFile(filepath.Join(dir, "config.json"))
-	if err != nil {
-		return "", err
-	}
+
 	//c.loadImages()
 	//todo 挂载镜像，操作checkpoint的镜像文件之后用runc restore
 	//get, err := c.client.ContainerService().Get(ctx, task.ID())
@@ -129,6 +124,7 @@ func (c *criService) ContainerRestore(
 			//	return "", err
 			//}
 		}
+
 		if err := c.restoreFileSystemChanges(ctx, ctr, mountPoint); err != nil {
 			return "", err
 		}
@@ -231,6 +227,13 @@ func (c *criService) ContainerRestore(
 		//		)
 		//	}
 		//}
+	}
+	//show dir file
+	listFiles(ctx, dir)
+	//var ctrSpec *generate.SpecGenerator
+	ctrSpec, err := generate.NewFromFile(filepath.Join(dir, "config.json"))
+	if err != nil {
+		return "", err
 	}
 
 	// We need to adapt the to be restored container to the sandbox created for this container.
