@@ -50,10 +50,9 @@ func (c *criService) ContainerRestore(
 	// once in Dir(). This code takes the version from Dir(), modifies it and
 	// overwrites both versions (Dir() and BundlePath())
 	dir := c.getContainerRootDir(ctr.ID)
+	//show dir file
+	listFiles(ctx, dir)
 	ctrSpec, err := generate.NewFromFile(filepath.Join(dir, "config.json"))
-	if err != nil {
-		return "", err
-	}
 	if err != nil {
 		return "", err
 	}
@@ -390,4 +389,16 @@ func CRRemoveDeletedFiles(id, baseDirectory, containerRootDirectory string) erro
 	}
 
 	return nil
+}
+func listFiles(ctx context.Context, dir string) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		log.G(ctx).Infoln("Error reading directory:", err)
+		return
+	}
+
+	log.G(ctx).Infoln("Files in directory:", dir)
+	for _, file := range files {
+		log.G(ctx).Infoln(file.Name())
+	}
 }
