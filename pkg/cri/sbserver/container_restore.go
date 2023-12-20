@@ -67,6 +67,7 @@ func (c *criService) CRImportCheckpoint(
 		return nil, nil, err
 	}
 	defer func() {
+		log.G(ctx).Infof("Removing %q", mountPoint)
 		err := os.RemoveAll(mountPoint)
 		if err != nil {
 			log.G(ctx).Errorf("Failed to remove %q: %v", mountPoint, retErr)
@@ -384,6 +385,7 @@ func (c criService) unMount(target string, ctx context.Context) error {
 	if err := c.client.LeasesService().Delete(ctx, leases.Lease{ID: target}); err != nil && !errdefs.IsNotFound(err) {
 		return fmt.Errorf("error deleting lease: %w", err)
 	}
+	log.G(ctx).Infof("Removing %q", target)
 	if err := s.Remove(ctx, target); err != nil && !errdefs.IsNotFound(err) {
 		return fmt.Errorf("error removing snapshot: %w", err)
 	}
