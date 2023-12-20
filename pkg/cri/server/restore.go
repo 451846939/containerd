@@ -61,6 +61,13 @@ func (c *criService) ContainerRestore(
 	//mountPoint, err := c.StorageImageServer().GetStore().Mount(ctr.ID, ctrSpec.Config.Linux.MountLabel)
 
 	mountPoint := dir
+	//show dir file
+	listFiles(ctx, dir)
+	//var ctrSpec *generate.SpecGenerator
+	ctrSpec, err := generate.NewFromFile(filepath.Join(dir, "config.json"))
+	if err != nil {
+		return "", err
+	}
 	//if err != nil {
 	//	log.Debugf(ctx, "Failed to mount container %q: %v", ctr.ID(), err)
 	//	return "", err
@@ -227,13 +234,6 @@ func (c *criService) ContainerRestore(
 		//		)
 		//	}
 		//}
-	}
-	//show dir file
-	listFiles(ctx, dir)
-	//var ctrSpec *generate.SpecGenerator
-	ctrSpec, err := generate.NewFromFile(filepath.Join(dir, "config.json"))
-	if err != nil {
-		return "", err
 	}
 
 	// We need to adapt the to be restored container to the sandbox created for this container.
