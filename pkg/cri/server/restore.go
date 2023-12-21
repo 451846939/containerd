@@ -117,12 +117,13 @@ func (c *criService) ContainerRestore(
 				"stats-dump",
 				"bind.mounts",
 			}
+			listFiles(ctx, imageMountPoint)
 			for _, name := range checkpoint {
 				src := filepath.Join(imageMountPoint, name)
 				dst := filepath.Join(dir, name)
 
 				if err := fs.CopyDir(dst, src); err != nil {
-					logrus.Debugf("Can't import '%s' from checkpoint image", name)
+					logrus.Errorf("Can't import '%s' from checkpoint image", name)
 				}
 			}
 		} else {
