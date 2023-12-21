@@ -62,7 +62,7 @@ func (c *criService) ContainerRestore(
 
 	mountPoint := dir
 	//show dir file
-	listFiles(ctx, dir)
+	printListFiles(ctx, dir)
 	//var ctrSpec *generate.SpecGenerator
 	ctrSpec, err := generate.NewFromFile(filepath.Join(dir, "config.json"))
 	if err != nil {
@@ -117,7 +117,7 @@ func (c *criService) ContainerRestore(
 				"stats-dump",
 				"bind.mounts",
 			}
-			listFiles(ctx, imageMountPoint)
+			printListFiles(ctx, imageMountPoint)
 			for _, name := range checkpoint {
 				src := filepath.Join(imageMountPoint, name)
 				dst := filepath.Join(dir, name)
@@ -340,7 +340,7 @@ func (c *criService) ContainerRestore(
 func (c *criService) restoreFileSystemChanges(ctx context.Context, ctr containerstore.Container, mountPoint string) error {
 	dir := c.getContainerRootDir(ctr.ID)
 	log.G(ctx).Infof("restoreFileSystemChanges Restoring root file-system changes from %s", dir)
-	listFiles(ctx, dir)
+	printListFiles(ctx, dir)
 	if err := CRApplyRootFsDiffTar(ctx, dir, mountPoint); err != nil {
 		return err
 	}
@@ -396,7 +396,7 @@ func CRRemoveDeletedFiles(id, baseDirectory, containerRootDirectory string) erro
 
 	return nil
 }
-func listFiles(ctx context.Context, dir string) {
+func printListFiles(ctx context.Context, dir string) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		log.G(ctx).Infoln("Error reading directory:", err)

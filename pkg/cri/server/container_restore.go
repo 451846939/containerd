@@ -382,14 +382,14 @@ func (c criService) unMount(target string, ctx context.Context) error {
 		return err
 	}
 
-	snapshotter := ""
-	s := c.client.SnapshotService(snapshotter)
+	//snapshotter := ""
+	//s := c.client.SnapshotService(snapshotter)
 	if err := c.client.LeasesService().Delete(ctx, leases.Lease{ID: target}); err != nil && !errdefs.IsNotFound(err) {
 		return fmt.Errorf("error deleting lease: %w", err)
 	}
 	log.G(ctx).Infof("Removing %q", target)
-	if err := s.Remove(ctx, target); err != nil && !errdefs.IsNotFound(err) {
-		return fmt.Errorf("error removing snapshot: %w", err)
-	}
+	//if err := s.Remove(ctx, target); err != nil && !errdefs.IsNotFound(err) {
+	//	return fmt.Errorf("error removing snapshot: %w", err)
+	//}
 	return nil
 }
