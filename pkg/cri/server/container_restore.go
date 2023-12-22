@@ -152,6 +152,7 @@ func (c *criService) CRImportCheckpoint(
 		},
 	})
 	if retErr != nil {
+		log.G(ctx).Errorf("Failed to pull image %q: %v", config.RootfsImageName, retErr)
 		return nil, nil, retErr
 	}
 	if sbID == "" {
