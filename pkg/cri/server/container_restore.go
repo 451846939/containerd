@@ -146,7 +146,14 @@ func (c *criService) CRImportCheckpoint(
 	if _, err := metadata.ReadJSONFile(config, mountPoint, metadata.ConfigDumpFile); err != nil {
 		return nil, nil, fmt.Errorf("failed to read %q: %w", metadata.ConfigDumpFile, err)
 	}
-
+	_, retErr = c.PullImage(ctx, &types.PullImageRequest{
+		Image: &types.ImageSpec{
+			Image: config.RootfsImageName,
+		},
+	})
+	if retErr != nil {
+		return nil, nil, retErr
+	}
 	if sbID == "" {
 		// restore into previous sandbox
 		sbID = dumpSpec.Annotations[annotations.SandboxID]
