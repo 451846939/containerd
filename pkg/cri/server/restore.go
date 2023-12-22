@@ -49,6 +49,10 @@ func (c *criService) ContainerRestore(
 	// This file is generated twice by earlier code. Once in BundlePath() and
 	// once in Dir(). This code takes the version from Dir(), modifies it and
 	// overwrites both versions (Dir() and BundlePath())
+	//service := c.client.SnapshotService(containerd.DefaultSnapshotter)
+	//service.Stat()
+
+	return "", errors.New("not implemented")
 	dir := c.getContainerRootDir(ctr.ID)
 
 	//c.loadImages()
