@@ -130,6 +130,11 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 		image := cntr.Config.Image.Image
 		//image, retErr := c.client.ImageService().Get(ctx, image)
 		path := c.imageFSPath
+		//get, retErr := c.containerStore.Get(id)
+		//task, retErr := get.Container.Task(ctx, nil)
+
+		//i, retErr := container.Image(ctx)
+		//descriptor, retErr := i.Config(ctx)
 		log.G(ctx).Infof("Restoring container image %q c.imageFSPath %q", image, path)
 		//taskOpts = append(taskOpts, containerd.WithImage(image))
 		//taskOpts = append(taskOpts, containerd.WithRestoreImagePath(c.getContainerRootDir(id)))

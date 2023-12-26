@@ -184,6 +184,7 @@ func (r *Runtime) Create(ctx context.Context, id string, opts runtime.CreateOpts
 		filepath.Join(r.state, namespace),
 		filepath.Join(r.root, namespace),
 		opts.Spec.GetValue())
+	log.G(ctx).Infof("bundle path %s", bundle.path)
 	if err != nil {
 		return nil, err
 	}
