@@ -183,6 +183,7 @@ func (m *ShimManager) ID() string {
 // Start launches a new shim instance
 func (m *ShimManager) Start(ctx context.Context, id string, opts runtime.CreateOpts) (_ ShimInstance, retErr error) {
 	bundle, err := NewBundle(ctx, m.root, m.state, id, opts.Spec)
+	log.G(ctx).Infof("bundle path: %s", bundle.Path)
 	if err != nil {
 		return nil, err
 	}
