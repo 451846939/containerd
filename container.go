@@ -461,3 +461,7 @@ func loadFifos(response *tasks.GetResponse) *cio.FIFOSet {
 		Terminal: response.Process.Terminal,
 	}, closer)
 }
+
+func (c *container) BundlePath(ctx context.Context) string {
+
+}

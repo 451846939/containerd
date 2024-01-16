@@ -20,8 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	metadata "github.com/checkpoint-restore/checkpointctl/lib"
 	"io"
+	"os"
 	"time"
 
 	"github.com/containerd/containerd"
@@ -45,7 +45,80 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 	if err != nil {
 		return nil, fmt.Errorf("an error occurred when try to find container %q: %w", r.GetContainerId(), err)
 	}
+	imageMountPoint := ""
+	if cntr.Restore {
+		//todo update config.json
+		// If the create command found a checkpoint image, the container
+		// has the restore flag set to true. At this point we need to jump
+		// into the restore code.
+		log.G(ctx).Debugf("Restoring container %q", r.ContainerId)
+		ctr, err := c.containerStore.Get(cntr.ID)
 
+		if ctr.RestoreArchive != "" {
+			if ctr.RestoreIsOCIImage {
+				log.G(ctx).Infof("Restoring from %v", ctr.RestoreArchive)
+				imageMountPoint, err = c.mountTMPPoint(ctr.RestoreArchive, ctx)
+				log.G(ctx).Infof("Checkpoint image mounted at %v", imageMountPoint)
+				if err != nil {
+					return nil, err
+				}
+				defer func() {
+					err = containerd.Cleanup(ctx, imageMountPoint)
+					if err != nil {
+						log.G(ctx).Errorf("Failed to cleanup checkpoint image: %q", err)
+					}
+					err = c.unMount(imageMountPoint, ctx)
+					if err != nil {
+						log.G(ctx).Errorf("Failed to unmount checkpoint image: %q", err)
+					}
+					err = os.RemoveAll(imageMountPoint)
+					if err != nil {
+						log.G(ctx).Errorf("Failed to remove %q: %v", imageMountPoint, err)
+					}
+				}()
+			}
+		}
+
+		//c.client.Restore(ctx, cntr.ID, cntr.ImageRef)
+		//ctr, err := c.ContainerRestore(
+		//	ctx,
+		//	&metadata.ContainerConfig{
+		//		ID: cntr.ID,
+		//	},
+		//)
+		if err != nil {
+			//ociContainer, err1 := s.GetContainerFromShortID(ctx, c.ID())
+			//if err1 != nil {
+			//	return nil, fmt.Errorf("failed to find container %s: %v", cntr.ID), err1)
+			//}
+			//s.ReleaseContainerName(ctx, ociContainer.Name())
+			//err2 := s.StorageRuntimeServer().DeleteContainer(ctx, c.ID())
+			//if err2 != nil {
+			//	log.Warnf(ctx, "Failed to cleanup container directory: %v", err2)
+			//}
+			defer func() {
+				if retErr != nil {
+					meta := cntr.Metadata
+					// Get sandbox config from sandbox store.
+					sandbox, err := c.sandboxStore.Get(meta.SandboxID)
+					if err != nil {
+						log.G(ctx).WithError(err).Errorf("Failed to find sandbox %q for failed container %q", meta.SandboxID, cntr.ID)
+					}
+					deferCtx, deferCancel := ctrdutil.DeferContext()
+					defer deferCancel()
+					err = c.nri.stopContainer(deferCtx, &sandbox, &cntr)
+					if err != nil {
+						log.G(ctx).WithError(err).Errorf("NRI stop failed for failed container %q", cntr.ID)
+					}
+				}
+			}()
+			log.G(ctx).WithError(err).Errorf("Failed to restore container %q", cntr.ID)
+			return nil, err
+		}
+
+		log.G(ctx).Infof("Restored container: %s", ctr)
+		//return &types.StartContainerResponse{}, nil
+	}
 	info, err := cntr.Container.Info(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get container info: %w", err)
@@ -135,11 +208,16 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 
 		//i, retErr := container.Image(ctx)
 		//descriptor, retErr := i.Config(ctx)
-		log.G(ctx).Infof("Restoring container image %q c.imageFSPath %q", image, path)
+		log.G(ctx).Infof("Restoring container image %q c.imageFSPath %q imageMountPoint %q", image, path, imageMountPoint)
 		//taskOpts = append(taskOpts, containerd.WithImage(image))
-		//taskOpts = append(taskOpts, containerd.WithRestoreImagePath(c.getContainerRootDir(id)))
+
+		if imageMountPoint != "" {
+			taskOpts = append(taskOpts, containerd.WithRestoreImagePath(imageMountPoint))
+		}
 	}
+
 	task, err := container.NewTask(ctx, ioCreation, taskOpts...)
+	//bundlePath := task.BundlePath(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create containerd task: %w", err)
 	}
@@ -153,7 +231,7 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 			}
 		}
 	}()
-
+	//task.
 	// wait is a long running background request, no timeout needed.
 	exitCh, err := task.Wait(ctrdutil.NamespacedContext())
 	if err != nil {
@@ -170,37 +248,7 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 			}
 		}
 	}()
-	if cntr.Restore {
-		//todo update config.json
-		// If the create command found a checkpoint image, the container
-		// has the restore flag set to true. At this point we need to jump
-		// into the restore code.
-		log.G(ctx).Debugf("Restoring container %q", r.ContainerId)
-		//c.client.Restore(ctx, cntr.ID, cntr.ImageRef)
-		ctr, err := c.ContainerRestore(
-			ctx,
-			&metadata.ContainerConfig{
-				ID: cntr.ID,
-			},
-		)
-		if err != nil {
-			//ociContainer, err1 := s.GetContainerFromShortID(ctx, c.ID())
-			//if err1 != nil {
-			//	return nil, fmt.Errorf("failed to find container %s: %v", cntr.ID), err1)
-			//}
-			//s.ReleaseContainerName(ctx, ociContainer.Name())
-			//err2 := s.StorageRuntimeServer().DeleteContainer(ctx, c.ID())
-			//if err2 != nil {
-			//	log.Warnf(ctx, "Failed to cleanup container directory: %v", err2)
-			//}
-			//s.removeContainer(ctx, ociContainer)
-			log.G(ctx).WithError(err).Errorf("Failed to restore container %q", cntr.ID)
-			return nil, err
-		}
 
-		log.G(ctx).Infof("Restored container: %s", ctr)
-		//return &types.StartContainerResponse{}, nil
-	}
 	if c.nri.isEnabled() {
 		err = c.nri.startContainer(ctx, &sandbox, &cntr)
 		if err != nil {

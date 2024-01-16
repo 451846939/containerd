@@ -351,3 +351,7 @@ func (t *Task) Wait(ctx context.Context) (*runtime.Exit, error) {
 		Status:    r.ExitStatus,
 	}, nil
 }
+
+func (t *Task) BundlePath(ctx context.Context) string {
+	return t.bundle.path
+}

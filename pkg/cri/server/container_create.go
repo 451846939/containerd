@@ -51,8 +51,10 @@ func init() {
 // CreateContainer creates a new container in the given PodSandbox.
 func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateContainerRequest) (_ *runtime.CreateContainerResponse, retErr error) {
 	config := r.GetConfig()
+	needCreateImage := config.GetImage().GetImage()
+	var checkpointImage containerd.Image
 	//todo  add checkpoint
-	checkpointImage, err := func() (bool, error) {
+	isCheckpointImage, err := func() (bool, error) {
 		if config == nil ||
 			config.Image == nil ||
 			r.SandboxConfig == nil ||
@@ -75,12 +77,11 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 
 		return ok, nil
 	}()
-
 	log.G(ctx).Debugf("Container config %+v", config)
 	sandboxConfig := r.GetSandboxConfig()
 	var ctrId *string
-	log.G(ctx).Infof("checkpointImage %v", checkpointImage)
-	if checkpointImage {
+	log.G(ctx).Infof("isCheckpointImage %v", isCheckpointImage)
+	if isCheckpointImage {
 		//todo restore
 		sandboxConfig, config, err = c.CRImportCheckpoint(ctx, config, r.GetPodSandboxId(), ctrId)
 		if err != nil {
@@ -89,7 +90,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 		//print ctrId
 		log.G(ctx).Debugf("container id %v ", ctrId)
 		//return &runtime.CreateContainerResponse{ContainerId: id}, nil
-		log.G(ctx).Infof("checkpointImage ok create sandbox ", checkpointImage)
+		log.G(ctx).Infof("isCheckpointImage ok create sandbox ", isCheckpointImage)
 	}
 	sandbox, err := c.sandboxStore.Get(r.GetPodSandboxId())
 	if err != nil {
@@ -106,7 +107,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	// Reserve the container name to avoid concurrent `CreateContainer` request creating
 	// the same container.
 	var id string
-	if checkpointImage && ctrId != nil {
+	if isCheckpointImage && ctrId != nil {
 		id = *ctrId
 	} else {
 		id = util.GenerateID()
@@ -232,7 +233,6 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	if err != nil {
 		return nil, err
 	}
-
 	// Set snapshotter before any other options.
 	opts := []containerd.NewContainerOpts{
 		containerd.WithSnapshotter(c.runtimeSnapshotter(ctx, ociRuntime)),
@@ -338,10 +338,43 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 			}
 		}
 	}()
-	if checkpointImage {
+	//if isCheckpointImage {
+	//	// Prepare container image snapshot. For container, the image should have
+	//	// been pulled before creating the container, so do not ensure the image.
+	//	image, err := c.localResolve(needCreateImage)
+	//	if err != nil {
+	//		return nil, fmt.Errorf("failed to resolve image %q: %w", config.GetImage().GetImage(), err)
+	//	}
+	//	checkpointImage, err = c.toContainerdImage(ctx, image)
+	//	if err != nil {
+	//		return nil, fmt.Errorf("failed to get image from containerd %q: %w", image.ID, err)
+	//	}
+	//	diffIDs, err := checkpointImage.RootFS(ctx)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	chainID := identity.ChainID(diffIDs).String()
+	//	fmt.Println(chainID)
+	//
+	//	s := c.client.SnapshotService(containerd.DefaultSnapshotter)
+	//
+	//	var mounts []mount.Mount
+	//	mounts, err := s.Prepare(ctx, needCreateImage, chainID)
+	//
+	//	if err != nil {
+	//		if errdefs.IsAlreadyExists(err) {
+	//			mounts, err := s.Mounts(ctx, target)
+	//		}
+	//		if err != nil {
+	//			return err
+	//		}
+	//	}
+	//
+	//}
+	if isCheckpointImage {
 		container.Restore = true
 		container.RestoreArchive = config.Image.Image
-		container.RestoreIsOCIImage = checkpointImage
+		container.RestoreIsOCIImage = isCheckpointImage
 		//todo CheckpointedAt time
 		//container.Stats.CheckpointedAt = config.CheckpointedAt
 	}

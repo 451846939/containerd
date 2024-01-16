@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/containerd/containerd"
 	"io"
 	"os"
 	"path"
@@ -168,6 +169,7 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)
 	}
+	//todo 直接把oci镜像解压挂载到一个临时目录然后传进来再进行别的操作
 	checkpointPath, err := getRestorePath(container.Runtime.Name, r.Options)
 	if err != nil {
 		return nil, err
@@ -238,6 +240,15 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		return nil, errdefs.ToGRPC(fmt.Errorf("task %s: %w", r.ContainerID, errdefs.ErrAlreadyExists))
 	}
 	c, err := rtime.Create(ctx, r.ContainerID, opts)
+
+	bundlePath := c.BundlePath(ctx)
+	//todo 修改config.json 里面的nspath 符合目前的sandbox否则无法恢复
+	if checkpointPath != "" && r.Checkpoint == nil {
+		log.G(ctx).Infof("CopyImageDiff befor checkpointPath is %s", checkpointPath)
+		containerd.PrintListFiles(ctx, bundlePath)
+		containerd.CopyImageDiff(ctx, checkpointPath, bundlePath)
+		log.G(ctx).Infof("CopyImageDiff after checkpointPath is %s", checkpointPath)
+	}
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)
 	}

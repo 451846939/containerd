@@ -23,6 +23,7 @@ import (
 func (c *criService) ContainerRestore(
 	ctx context.Context,
 	config *metadata.ContainerConfig,
+	bundlePath string,
 ) (string, error) {
 	var ctr containerstore.Container
 	var err error
@@ -52,8 +53,8 @@ func (c *criService) ContainerRestore(
 	//service := c.client.SnapshotService(containerd.DefaultSnapshotter)
 	//service.Stat()
 
-	return "", errors.New("not implemented")
-	dir := c.getContainerRootDir(ctr.ID)
+	//return "", errors.New("not implemented")
+	//dir := c.getContainerRootDir(ctr.ID)
 
 	//c.loadImages()
 	//todo 挂载镜像，操作checkpoint的镜像文件之后用runc restore
@@ -64,11 +65,11 @@ func (c *criService) ContainerRestore(
 	// During checkpointing the container is unmounted. This mounts the container again.
 	//mountPoint, err := c.StorageImageServer().GetStore().Mount(ctr.ID, ctrSpec.Config.Linux.MountLabel)
 
-	mountPoint := dir
+	mountPoint := bundlePath
 	//show dir file
-	printListFiles(ctx, dir)
+	printListFiles(ctx, mountPoint)
 	//var ctrSpec *generate.SpecGenerator
-	ctrSpec, err := generate.NewFromFile(filepath.Join(dir, "config.json"))
+	ctrSpec, err := generate.NewFromFile(filepath.Join(mountPoint, "config.json"))
 	if err != nil {
 		return "", err
 	}
@@ -107,29 +108,7 @@ func (c *criService) ContainerRestore(
 				}
 			}()
 
-			// Import all checkpoint files except ConfigDumpFile and SpecDumpFile. We
-			// generate new container config files to enable to specifying a new
-			// container name.
-			checkpoint := []string{
-				"artifacts",
-				metadata.CheckpointDirectory,
-				metadata.DevShmCheckpointTar,
-				metadata.RootFsDiffTar,
-				metadata.DeletedFilesFile,
-				metadata.PodOptionsFile,
-				metadata.PodDumpFile,
-				"stats-dump",
-				"bind.mounts",
-			}
-			printListFiles(ctx, imageMountPoint)
-			for _, name := range checkpoint {
-				src := filepath.Join(imageMountPoint, name)
-				dst := filepath.Join(dir, name)
-
-				if err := fs.CopyDir(dst, src); err != nil {
-					logrus.Errorf("Can't import '%s' from checkpoint image", name)
-				}
-			}
+			copyImageDiff(ctx, imageMountPoint, mountPoint)
 		} else {
 			//todo
 			//if err := crutils.CRImportCheckpointWithoutConfig(ctr.Dir(), ctr.RestoreArchive()); err != nil {
@@ -137,7 +116,7 @@ func (c *criService) ContainerRestore(
 			//}
 		}
 
-		if err := c.restoreFileSystemChanges(ctx, ctr, mountPoint); err != nil {
+		if err := restoreFileSystemChanges(ctx, mountPoint); err != nil {
 			return "", err
 		}
 
@@ -278,7 +257,7 @@ func (c *criService) ContainerRestore(
 	//ctr.SetSandbox(ctr.Sandbox())
 
 	saveOptions := generate.ExportOptions{}
-	if err := ctrSpec.SaveToFile(filepath.Join(dir, "config.json"), saveOptions); err != nil {
+	if err := ctrSpec.SaveToFile(filepath.Join(mountPoint, "config.json"), saveOptions); err != nil {
 		return "", err
 	}
 	//if err := ctrSpec.SaveToFile(filepath.Join(ctr.BundlePath(), "config.json"), saveOptions); err != nil {
@@ -305,7 +284,7 @@ func (c *criService) ContainerRestore(
 	// should exist. Still ignoring errors for now as the container should be
 	// restored and running. Not erroring out just because some cleanup operation
 	// failed. Starting with the checkpoint directory
-	checkPointPath := filepath.Join(dir, metadata.CheckpointDirectory)
+	checkPointPath := filepath.Join(mountPoint, metadata.CheckpointDirectory)
 	err = os.RemoveAll(checkPointPath)
 	if err != nil {
 		log.G(ctx).Debugf("Non-fatal: removal of checkpoint directory (%s) failed: %v", checkPointPath, err)
@@ -329,7 +308,7 @@ func (c *criService) ContainerRestore(
 		//	// restore files are put into BundlePath().
 		//	file = filepath.Join(ctr.BundlePath(), del)
 		//} else {
-		file = filepath.Join(dir, del)
+		file = filepath.Join(mountPoint, del)
 		//}
 		err = os.Remove(file)
 		if err != nil {
@@ -341,11 +320,37 @@ func (c *criService) ContainerRestore(
 	return ctr.ID, nil
 }
 
-func (c *criService) restoreFileSystemChanges(ctx context.Context, ctr containerstore.Container, mountPoint string) error {
-	dir := c.getContainerRootDir(ctr.ID)
-	log.G(ctx).Infof("restoreFileSystemChanges Restoring root file-system changes from %s", dir)
-	printListFiles(ctx, dir)
-	if err := CRApplyRootFsDiffTar(ctx, dir, mountPoint); err != nil {
+func copyImageDiff(ctx context.Context, imageMountPoint string, mountPoint string) {
+	// Import all checkpoint files except ConfigDumpFile and SpecDumpFile. We
+	// generate new container config files to enable to specifying a new
+	// container name.
+	checkpoint := []string{
+		"artifacts",
+		metadata.CheckpointDirectory,
+		metadata.DevShmCheckpointTar,
+		metadata.RootFsDiffTar,
+		metadata.DeletedFilesFile,
+		metadata.PodOptionsFile,
+		metadata.PodDumpFile,
+		"stats-dump",
+		"bind.mounts",
+	}
+	printListFiles(ctx, imageMountPoint)
+	for _, name := range checkpoint {
+		src := filepath.Join(imageMountPoint, name)
+		dst := filepath.Join(mountPoint, name)
+
+		if err := fs.CopyDir(dst, src); err != nil {
+			logrus.Errorf("Can't import '%s' from checkpoint image", name)
+		}
+	}
+}
+
+func restoreFileSystemChanges(ctx context.Context, mountPoint string) error {
+	//dir := c.getContainerRootDir(ctr.ID)
+	log.G(ctx).Infof("restoreFileSystemChanges Restoring root file-system changes from %s", mountPoint)
+	printListFiles(ctx, mountPoint)
+	if err := CRApplyRootFsDiffTar(ctx, mountPoint, mountPoint); err != nil {
 		return err
 	}
 

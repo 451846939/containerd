@@ -241,6 +241,10 @@ type shimTask struct {
 	task task.TaskService
 }
 
+func (s *shimTask) BundlePath(ctx context.Context) string {
+	return s.Bundle()
+}
+
 func newShimTask(shim ShimInstance) *shimTask {
 	return &shimTask{
 		ShimInstance: shim,

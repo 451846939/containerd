@@ -159,7 +159,11 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 		taskOpts = append(taskOpts, containerd.WithRuntimePath(ociRuntime.Path))
 	}
 	if cntr.Restore {
-		taskOpts = append(taskOpts, containerd.WithRestoreImagePath(c.getContainerRootDir(id)))
+		image := cntr.Config.Image.Image
+		//image, retErr := c.client.ImageService().Get(ctx, image)
+		path := c.imageFSPath
+		log.G(ctx).Infof("Restoring container image %q c.imageFSPath %q", image, path)
+		//taskOpts = append(taskOpts, containerd.WithImage(image))
 	}
 	task, err := container.NewTask(ctx, ioCreation, taskOpts...)
 	if err != nil {

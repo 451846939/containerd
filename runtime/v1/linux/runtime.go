@@ -193,7 +193,6 @@ func (r *Runtime) Create(ctx context.Context, id string, opts runtime.CreateOpts
 			bundle.Delete()
 		}
 	}()
-
 	shimopt := ShimLocal(r.config, r.events)
 	if !r.config.NoShim {
 		var cgroup string
