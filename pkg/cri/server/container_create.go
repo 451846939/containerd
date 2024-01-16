@@ -51,8 +51,8 @@ func init() {
 // CreateContainer creates a new container in the given PodSandbox.
 func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateContainerRequest) (_ *runtime.CreateContainerResponse, retErr error) {
 	config := r.GetConfig()
-	needCreateImage := config.GetImage().GetImage()
-	var checkpointImage containerd.Image
+	//needCreateImage := config.GetImage().GetImage()
+	//var checkpointImage containerd.Image
 	//todo  add checkpoint
 	isCheckpointImage, err := func() (bool, error) {
 		if config == nil ||
