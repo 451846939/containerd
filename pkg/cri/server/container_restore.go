@@ -210,6 +210,9 @@ func (c *criService) CRImportCheckpoint(
 		},
 		Annotations: createAnnotations,
 		Labels:      createLabels,
+		Tty:         createConfig.Tty,
+		Stdin:       createConfig.Stdin,
+		LogPath:     createConfig.LogPath,
 	}
 
 	if createConfig.Linux.Resources != nil {
