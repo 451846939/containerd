@@ -351,10 +351,23 @@ func CopyImageDiff(ctx context.Context, imageMountPoint string, mountPoint strin
 	for _, name := range checkpoint {
 		src := filepath.Join(imageMountPoint, name)
 		dst := filepath.Join(mountPoint, name)
-		if err := fs.CopyDir(dst, src); err != nil {
-			//打印出err
+		stat, err := os.Stat(src)
+		if err != nil {
 			logrus.Errorf("Can't import '%s' path '%s' from checkpoint image err:{%s}", name, src, err.Error())
+			continue
 		}
+		if stat.IsDir() {
+			if err := fs.CopyDir(dst, src); err != nil {
+				//打印出err
+				logrus.Errorf("Can't import '%s' path '%s' from checkpoint image err:{%s}", name, src, err.Error())
+			}
+		} else {
+			if err := fs.CopyFile(dst, src); err != nil {
+				//打印出err
+				logrus.Errorf("Can't import '%s' path '%s' from checkpoint image err:{%s}", name, src, err.Error())
+			}
+		}
+
 	}
 }
 
