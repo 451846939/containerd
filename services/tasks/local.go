@@ -254,6 +254,7 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 			log.G(ctx).Errorf("RestoreFileSystemChanges failed %s", err)
 			return nil, err
 		}
+		opts.Checkpoint = bundlePath + "/checkpoint"
 	}
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)
