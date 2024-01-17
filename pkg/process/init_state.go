@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/containerd/containerd/log"
 
 	google_protobuf "github.com/containerd/containerd/protobuf/types"
 	runc "github.com/containerd/go-runc"
@@ -159,7 +160,7 @@ func (s *createdCheckpointState) Start(ctx context.Context) error {
 		defer socket.Close()
 		s.opts.ConsoleSocket = socket
 	}
-
+	log.G(ctx).Infof("createdCheckpointState Restoring container %s", p.id)
 	if _, err := s.p.runtime.Restore(ctx, p.id, p.Bundle, s.opts); err != nil {
 		return p.runtimeError(err, "OCI runtime restore failed")
 	}

@@ -254,7 +254,7 @@ func (p *Init) Status(ctx context.Context) (string, error) {
 func (p *Init) Start(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
+	log.G(ctx).Infof("Start init process %s state %v", p.id, p.initState)
 	return p.initState.Start(ctx)
 }
 
