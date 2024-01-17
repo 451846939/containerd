@@ -248,6 +248,7 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		containerd.PrintListFiles(ctx, bundlePath)
 		containerd.CopyImageDiff(ctx, checkpointPath, bundlePath)
 		log.G(ctx).Infof("CopyImageDiff after checkpointPath is %s", checkpointPath)
+		containerd.PrintListFiles(ctx, bundlePath)
 	}
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)

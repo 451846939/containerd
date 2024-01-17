@@ -351,7 +351,6 @@ func CopyImageDiff(ctx context.Context, imageMountPoint string, mountPoint strin
 	for _, name := range checkpoint {
 		src := filepath.Join(imageMountPoint, name)
 		dst := filepath.Join(mountPoint, name)
-
 		if err := fs.CopyDir(dst, src); err != nil {
 			logrus.Errorf("Can't import '%s' from checkpoint image", name)
 		}
