@@ -211,6 +211,7 @@ func (c *criService) CRImportCheckpoint(
 		Annotations: createAnnotations,
 		Labels:      createLabels,
 		Tty:         createConfig.Tty,
+		StdinOnce:   createConfig.StdinOnce,
 		Stdin:       createConfig.Stdin,
 		LogPath:     createConfig.LogPath,
 	}
