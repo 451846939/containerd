@@ -126,6 +126,7 @@ func (p *Init) Create(ctx context.Context, r *CreateConfig) error {
 		}
 		p.io = pio
 	}
+	log.G(ctx).Infof("Create init process %s checkpoint %v", p.id, r.Checkpoint)
 	if r.Checkpoint != "" {
 		return p.createCheckpointedState(r, pidFile)
 	}
