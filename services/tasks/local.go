@@ -223,6 +223,10 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 			Options: m.Options,
 		})
 	}
+	if checkpointPath != "" && r.Checkpoint == nil {
+		// fixme 这里暂时使用写死的测试流程
+		opts.Checkpoint = checkpointPath + "/checkpoint"
+	}
 	if strings.HasPrefix(container.Runtime.Name, "io.containerd.runtime.v1.") {
 		log.G(ctx).Warn("runtime v1 is deprecated since containerd v1.4, consider using runtime v2")
 	} else if container.Runtime.Name == plugin.RuntimeRuncV1 {
@@ -254,7 +258,6 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 			log.G(ctx).Errorf("RestoreFileSystemChanges failed %s", err)
 			return nil, err
 		}
-		opts.Checkpoint = bundlePath + "/checkpoint"
 	}
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)
