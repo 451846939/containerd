@@ -217,6 +217,7 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 	}
 
 	task, err := container.NewTask(ctx, ioCreation, taskOpts...)
+	log.G(ctx).Infof("start container NewTask task %q", task)
 	//bundlePath := task.BundlePath(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create containerd task: %w", err)
@@ -256,7 +257,7 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 			return nil, fmt.Errorf("NRI container start failed: %w", err)
 		}
 	}
-
+	log.G(ctx).Infof("start container %q", id)
 	// Start containerd task.
 	if err := task.Start(ctx); err != nil {
 		return nil, fmt.Errorf("failed to start containerd task %q: %w", id, err)

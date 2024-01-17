@@ -278,6 +278,7 @@ func (l *local) Start(ctx context.Context, r *api.StartRequest, _ ...grpc.CallOp
 			return nil, errdefs.ToGRPC(err)
 		}
 	}
+	log.G(ctx).Infof("starting process id %s", p.ID())
 	if err := p.Start(ctx); err != nil {
 		return nil, errdefs.ToGRPC(err)
 	}
