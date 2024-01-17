@@ -207,6 +207,7 @@ func (s *Service) Start(ctx context.Context, r *shimapi.StartRequest) (*shimapi.
 	if err != nil {
 		return nil, err
 	}
+	log.G(ctx).Infof("starting process v1 %s", r.ID)
 	if err := p.Start(ctx); err != nil {
 		return nil, err
 	}
