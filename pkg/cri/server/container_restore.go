@@ -196,26 +196,7 @@ func (c *criService) CRImportCheckpoint(
 		//// a cross-process API, and this value is correct in that API.
 		//rootFSImage = id.IDStringForOutOfProcessConsumptionOnly()
 	}
-	containerConfig = &types.ContainerConfig{
-		Metadata: &types.ContainerMetadata{
-			Name:    ctrMetadata.Name,
-			Attempt: createConfig.Metadata.Attempt,
-		},
-		Image: &types.ImageSpec{
-			Image: rootFSImage,
-		},
-		Linux: &types.LinuxContainerConfig{
-			Resources:       &types.LinuxContainerResources{},
-			SecurityContext: &types.LinuxContainerSecurityContext{},
-		},
-		Annotations: createAnnotations,
-		Labels:      createLabels,
-		Tty:         createConfig.Tty,
-		StdinOnce:   createConfig.StdinOnce,
-		Stdin:       createConfig.Stdin,
-		LogPath:     createConfig.LogPath,
-		Mounts:      createMounts,
-	}
+
 	if createConfig.Linux.Resources != nil {
 		containerConfig.Linux.Resources = createConfig.Linux.Resources
 	}
@@ -288,6 +269,27 @@ func (c *criService) CRImportCheckpoint(
 		log.G(ctx).Errorf("Failed to get sandbox %q: %v", sbID, retErr)
 		return nil, nil, retErr
 	}
+	containerConfig = &types.ContainerConfig{
+		Metadata: &types.ContainerMetadata{
+			Name:    ctrMetadata.Name,
+			Attempt: createConfig.Metadata.Attempt,
+		},
+		Image: &types.ImageSpec{
+			Image: rootFSImage,
+		},
+		Linux: &types.LinuxContainerConfig{
+			Resources:       &types.LinuxContainerResources{},
+			SecurityContext: &types.LinuxContainerSecurityContext{},
+		},
+		Annotations: createAnnotations,
+		Labels:      createLabels,
+		Tty:         createConfig.Tty,
+		StdinOnce:   createConfig.StdinOnce,
+		Stdin:       createConfig.Stdin,
+		LogPath:     createConfig.LogPath,
+		Mounts:      createMounts,
+	}
+	log.G(ctx).Infof("config Mount %v", createMounts)
 
 	sandboxConfig = &types.PodSandboxConfig{
 		Metadata: &types.PodSandboxMetadata{
