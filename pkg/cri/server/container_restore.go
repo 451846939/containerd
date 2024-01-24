@@ -214,8 +214,8 @@ func (c *criService) CRImportCheckpoint(
 		StdinOnce:   createConfig.StdinOnce,
 		Stdin:       createConfig.Stdin,
 		LogPath:     createConfig.LogPath,
+		Mounts:      createMounts,
 	}
-
 	if createConfig.Linux.Resources != nil {
 		containerConfig.Linux.Resources = createConfig.Linux.Resources
 	}
