@@ -277,7 +277,7 @@ func (c *criService) CRImportCheckpoint(
 			}
 		}
 
-		log.G(ctx).Debugf("Adding mounts %#v", mount)
+		log.G(ctx).Infof("Adding mounts %#v", mount)
 		containerConfig.Mounts = append(containerConfig.Mounts, mount)
 
 	}
@@ -287,7 +287,6 @@ func (c *criService) CRImportCheckpoint(
 		log.G(ctx).Errorf("Failed to get sandbox %q: %v", sbID, retErr)
 		return nil, nil, retErr
 	}
-	containerConfig.Mounts = createMounts
 
 	log.G(ctx).Infof("config Mount %v", createMounts)
 

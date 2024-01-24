@@ -194,7 +194,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	} else if len(image.ImageSpec.Config.Volumes) != 0 {
 		log.G(ctx).Debugf("Ignoring volumes defined in image %v because IgnoreImageDefinedVolumes is set", image.ID)
 	}
-
+	log.G(ctx).Infof("Container %q volume mounts: %#+v", id, volumeMounts)
 	// Generate container mounts.
 	mounts := c.containerMounts(sandboxID, config)
 
