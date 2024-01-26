@@ -216,6 +216,7 @@ func (c *criService) CRImportCheckpoint(
 		Stdin:       createConfig.Stdin,
 		LogPath:     createConfig.LogPath,
 	}
+	log.G(ctx).Infof("restore LogPath %v", createConfig.LogPath)
 	if createConfig.Linux.Resources != nil {
 		containerConfig.Linux.Resources = createConfig.Linux.Resources
 	}
@@ -298,7 +299,14 @@ func (c *criService) CRImportCheckpoint(
 			Namespace: sb.Config.Metadata.Namespace,
 			Attempt:   sb.Config.Metadata.Attempt,
 		},
-		Linux: podConfig.Linux,
+		Hostname:     podConfig.Hostname,
+		LogDirectory: podConfig.LogDirectory,
+		DnsConfig:    podConfig.DnsConfig,
+		PortMappings: podConfig.PortMappings,
+		Labels:       podConfig.Labels,
+		Annotations:  podConfig.Annotations,
+		Linux:        podConfig.Linux,
+		Windows:      podConfig.Windows,
 	}
 	return sandboxConfig, containerConfig, nil
 }
