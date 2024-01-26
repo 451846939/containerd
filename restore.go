@@ -22,6 +22,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//
 //// ContainerRestore restores a checkpointed container.
 //func (c *container) ContainerRestore(
 //	ctx context.Context,
@@ -37,194 +38,109 @@ import (
 //	if err != nil {
 //		return "", fmt.Errorf("failed to find container %s: %w", config.ID, err)
 //	}
-//
-//	//task, err := ctr.Container.Task(ctx, nil)
-//	//if err != nil {
-//	//	log.G(ctx).Errorf("Failed to get task for container %s: %v", ctr.ID, err)
-//	//	return "", err
-//	//}
-//	//status, err := task.Status(ctx)
-//	//if err != nil {
-//	//	log.G(ctx).Errorf("Failed to get status for container %s: %v", ctr.ID, err)
-//	//	return "", err
-//	//}
-//	//if status.Status == containerd.Running {
-//	//	return "", fmt.Errorf("cannot restore running container %s", ctr.Name)
-//	//}
-//
-//	// Get config.json
-//	// This file is generated twice by earlier code. Once in BundlePath() and
-//	// once in Dir(). This code takes the version from Dir(), modifies it and
-//	// overwrites both versions (Dir() and BundlePath())
-//	//service := c.client.SnapshotService(containerd.DefaultSnapshotter)
-//	//service.Stat()
-//
-//	//return "", errors.New("not implemented")
-//	//dir := c.getContainerRootDir(ctr.ID)
-//
-//	//c.loadImages()
-//	//todo 挂载镜像，操作checkpoint的镜像文件之后用runc restore
-//	//get, err := c.client.ContainerService().Get(ctx, task.ID())
-//
-//	//c.client.SnapshotService().Mounts()
-//	//c.mountPoint()
-//	// During checkpointing the container is unmounted. This mounts the container again.
-//	//mountPoint, err := c.StorageImageServer().GetStore().Mount(ctr.ID, ctrSpec.Config.Linux.MountLabel)
-//
 //	mountPoint := bundlePath
-//	//show dir file
-//	PrintListFiles(ctx, mountPoint)
 //	//var ctrSpec *generate.SpecGenerator
 //	ctrSpec, err := generate.NewFromFile(filepath.Join(mountPoint, "config.json"))
 //	if err != nil {
 //		return "", err
 //	}
-//	//if err != nil {
-//	//	log.Debugf(ctx, "Failed to mount container %q: %v", ctr.ID(), err)
-//	//	return "", err
-//	//}
-//	//log.Debugf(ctx, "Container mountpoint %v", mountPoint)
-//	//log.Debugf(ctx, "Sandbox %v", ctr.Sandbox())
-//	//log.Debugf(ctx, "Specgen.Config.Annotations[io.kubernetes.cri-o.SandboxID] %v", ctrSpec.Config.Annotations["io.kubernetes.cri-o.SandboxID"])
-//	//sb, err := c.LookupSandbox(ctr.Sandbox())
-//	//if err != nil {
-//	//	return "", err
-//	//}
-//
-//	sb, err := c.sandboxStore.Get(ctr.SandboxID)
-//	if err != nil {
-//		return "", err
-//	}
-//	if ctr.RestoreArchive != "" {
-//		if ctr.RestoreIsOCIImage {
-//			log.G(ctx).Infof("Restoring from %v", ctr.RestoreArchive)
-//			imageMountPoint, err := c.MountTMPPoint(ctr.RestoreArchive, ctx)
-//			if err != nil {
-//				return "", err
-//			}
-//			log.G(ctx).Infof("Checkpoint image mounted at %v", imageMountPoint)
-//			defer func() {
-//				err := c.unMount(imageMountPoint, ctx)
-//				if err != nil {
-//					log.G(ctx).Errorf("Failed to unmount checkpoint image: %q", err)
-//					return
-//				}
-//				err = os.RemoveAll(imageMountPoint)
-//				if err != nil {
-//					log.G(ctx).Errorf("Failed to remove %q: %v", imageMountPoint, err)
-//				}
-//			}()
-//
-//			copyImageDiff(ctx, imageMountPoint, mountPoint)
-//		} else {
-//			//todo
-//			//if err := crutils.CRImportCheckpointWithoutConfig(ctr.Dir(), ctr.RestoreArchive()); err != nil {
-//			//	return "", err
-//			//}
-//		}
-//
-//		if err := restoreFileSystemChanges(ctx, mountPoint); err != nil {
+//	_, err = os.Stat(filepath.Join(mountPoint, "bind.mounts"))
+//	if err == nil {
+//		// If the file does not exist we assume it is an older checkpoint archive
+//		// without this type of file and we just ignore it. Possible failures are
+//		// caught in the next block.
+//		var externalBindMounts []ExternalBindMount
+//		_, err := metadata.ReadJSONFile(&externalBindMounts, dir, "bind.mounts")
+//		if err != nil {
 //			return "", err
 //		}
+//		for _, e := range externalBindMounts {
+//			if func() bool {
+//				for _, m := range ctrSpec.Config.Mounts {
+//					if (m.Destination == e.Destination) && (m.Source != e.Source) {
+//						// If the source differs this means that the external mount
+//						// source has already been fixed up earlier by the restore
+//						// code and no need to deal with it here.
+//						// Good example is the /etc/resolv.conf bind mount is now
+//						// pointing to the new /etc/resolv.conf of the new pod.
+//						return true
+//					}
+//				}
+//				return false
+//			}() {
+//				continue
+//			}
+//			_, err = os.Lstat(e.Source)
+//			if err != nil {
+//				// Even if this looks suspicious it is was CRI-O does during
+//				// container create. For each missing bind mount source CRI-O
+//				// creates a directory. For restore that is problematic as
+//				// CRIU will fail to bind mount a directory on a file.
+//				// Therefore during restore CRI-O does not create a directory
+//				// for each missing bind mount source. We track external bind
+//				// mounts in the checkpoint archive and can now recreate missing
+//				// files or directories.
+//				// This is especially useful if restoring a Kubernetes container
+//				// outside of Kubernetes.
+//				if e.FileType == "directory" {
+//					if err := os.MkdirAll(e.Source, os.FileMode(e.Permissions)); err != nil {
+//						return "", fmt.Errorf(
+//							"failed to recreate directory %q for container %s: %w",
+//							e.Source,
+//							ctr.ID(),
+//							err,
+//						)
+//					}
+//				} else {
+//					if err := os.MkdirAll(filepath.Dir(e.Source), 0o700); err != nil {
+//						return "", err
+//					}
+//					source, err := os.OpenFile(
+//						e.Source,
+//						os.O_RDONLY|os.O_CREATE,
+//						os.FileMode(e.Permissions),
+//					)
+//					if err != nil {
+//						return "", fmt.Errorf(
+//							"failed to recreate file %q for container %s: %w",
+//							e.Source,
+//							ctr.ID(),
+//							err,
+//						)
+//					}
+//					source.Close()
+//				}
+//				log.Debugf(ctx, "Created missing external bind mount %q %q\n", e.FileType, e.Source)
+//			}
+//		}
+//	}
 //
-//		//_, err = os.Stat(filepath.Join(dir, "bind.mounts"))
-//		//if err == nil {
-//		//	// If the file does not exist we assume it is an older checkpoint archive
-//		//	// without this type of file and we just ignore it. Possible failures are
-//		//	// caught in the next block.
-//		//	var externalBindMounts []ExternalBindMount
-//		//	_, err := metadata.ReadJSONFile(&externalBindMounts, dir, "bind.mounts")
-//		//	if err != nil {
-//		//		return "", err
-//		//	}
-//		//	for _, e := range externalBindMounts {
-//		//		if func() bool {
-//		//			for _, m := range ctrSpec.Config.Mounts {
-//		//				if (m.Destination == e.Destination) && (m.Source != e.Source) {
-//		//					// If the source differs this means that the external mount
-//		//					// source has already been fixed up earlier by the restore
-//		//					// code and no need to deal with it here.
-//		//					// Good example is the /etc/resolv.conf bind mount is now
-//		//					// pointing to the new /etc/resolv.conf of the new pod.
-//		//					return true
-//		//				}
-//		//			}
-//		//			return false
-//		//		}() {
-//		//			continue
-//		//		}
-//		//		_, err = os.Lstat(e.Source)
-//		//		if err != nil {
-//		//			// Even if this looks suspicious it is was CRI-O does during
-//		//			// container create. For each missing bind mount source CRI-O
-//		//			// creates a directory. For restore that is problematic as
-//		//			// CRIU will fail to bind mount a directory on a file.
-//		//			// Therefore during restore CRI-O does not create a directory
-//		//			// for each missing bind mount source. We track external bind
-//		//			// mounts in the checkpoint archive and can now recreate missing
-//		//			// files or directories.
-//		//			// This is especially useful if restoring a Kubernetes container
-//		//			// outside of Kubernetes.
-//		//			if e.FileType == "directory" {
-//		//				if err := os.MkdirAll(e.Source, os.FileMode(e.Permissions)); err != nil {
-//		//					return "", fmt.Errorf(
-//		//						"failed to recreate directory %q for container %s: %w",
-//		//						e.Source,
-//		//						ctr.ID(),
-//		//						err,
-//		//					)
-//		//				}
-//		//			} else {
-//		//				if err := os.MkdirAll(filepath.Dir(e.Source), 0o700); err != nil {
-//		//					return "", err
-//		//				}
-//		//				source, err := os.OpenFile(
-//		//					e.Source,
-//		//					os.O_RDONLY|os.O_CREATE,
-//		//					os.FileMode(e.Permissions),
-//		//				)
-//		//				if err != nil {
-//		//					return "", fmt.Errorf(
-//		//						"failed to recreate file %q for container %s: %w",
-//		//						e.Source,
-//		//						ctr.ID(),
-//		//						err,
-//		//					)
-//		//				}
-//		//				source.Close()
-//		//			}
-//		//			log.Debugf(ctx, "Created missing external bind mount %q %q\n", e.FileType, e.Source)
-//		//		}
-//		//	}
-//		//}
+//	for _, m := range ctrSpec.Config.Mounts {
+//		// This checks if all bind mount sources exist.
+//		// We cannot create missing bind mount sources automatically
+//		// as the source and destination need to be of the same type.
+//		// CRIU will fail restoring if the external bind mount source
+//		// is a directory but the internal destination is a file.
+//		// As destinations can be in nested bind mounts, which are only
+//		// correctly setup by runc/crun during container restore, we
+//		// cannot figure out the file type of the destination.
+//		// At this point we will fail and tell the user to create
+//		// the missing bind mount source file/directory.
 //
-//		//for _, m := range ctrSpec.Config.Mounts {
-//		//	// This checks if all bind mount sources exist.
-//		//	// We cannot create missing bind mount sources automatically
-//		//	// as the source and destination need to be of the same type.
-//		//	// CRIU will fail restoring if the external bind mount source
-//		//	// is a directory but the internal destination is a file.
-//		//	// As destinations can be in nested bind mounts, which are only
-//		//	// correctly setup by runc/crun during container restore, we
-//		//	// cannot figure out the file type of the destination.
-//		//	// At this point we will fail and tell the user to create
-//		//	// the missing bind mount source file/directory.
-//		//
-//		//	// With the code to create directories or files as necessary
-//		//	// this should not happen anymore. Still keeping the code
-//		//	// for backwards compatibility.
-//		//	if m.Type != bindMount {
-//		//		continue
-//		//	}
-//		//	_, err := os.Lstat(m.Source)
-//		//	if err != nil {
-//		//		return "", fmt.Errorf(
-//		//			"the bind mount source %s is missing. %s",
-//		//			m.Source,
-//		//			"Please create the corresponding file or directory",
-//		//		)
-//		//	}
-//		//}
+//		// With the code to create directories or files as necessary
+//		// this should not happen anymore. Still keeping the code
+//		// for backwards compatibility.
+//		if m.Type != bindMount {
+//			continue
+//		}
+//		_, err := os.Lstat(m.Source)
+//		if err != nil {
+//			return "", fmt.Errorf(
+//				"the bind mount source %s is missing. %s",
+//				m.Source,
+//				"Please create the corresponding file or directory",
+//			)
+//		}
 //	}
 //
 //	// We need to adapt the to be restored container to the sandbox created for this container.
@@ -269,25 +185,6 @@ import (
 //	}
 //	//if err := ctrSpec.SaveToFile(filepath.Join(ctr.BundlePath(), "config.json"), saveOptions); err != nil {
 //	//	return "", err
-//	//}
-//
-//	c.client.Restore(ctx)
-//	//
-//	//if err := c.runtime.RestoreContainer(
-//	//	ctx,
-//	//	ctr,
-//	//	sb.CgroupParent,
-//	//	sb.MountLabel(),
-//	//); err != nil {
-//	//	return "", fmt.Errorf("failed to restore container %s: %w", ctr.ID, err)
-//	//}
-//
-//	//if err := c.ContainerStateToDisk(ctx, ctr); err != nil {
-//	//	log.G(ctx).Warnf("Unable to write containers %s state to disk: %v", ctr.ID, err)
-//	//}
-//
-//	//if !opts.Keep {
-//	cleanup(ctx, mountPoint, err)
 //	//}
 //
 //	return ctr.ID, nil

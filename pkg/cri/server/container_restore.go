@@ -297,7 +297,7 @@ func (c *criService) CRImportCheckpoint(
 			Namespace: sb.Config.Metadata.Namespace,
 			Attempt:   sb.Config.Metadata.Attempt,
 		},
-		Linux: &types.LinuxPodSandboxConfig{},
+		Linux: sandboxConfig.Linux,
 	}
 	return sandboxConfig, containerConfig, nil
 }

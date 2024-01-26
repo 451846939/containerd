@@ -253,6 +253,7 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		containerd.CopyImageDiff(ctx, checkpointPath, bundlePath)
 		log.G(ctx).Infof("CopyImageDiff after checkpointPath is %s", checkpointPath)
 		containerd.PrintListFiles(ctx, bundlePath)
+
 		err := containerd.RestoreFileSystemChanges(ctx, bundlePath)
 		if err != nil {
 			log.G(ctx).Errorf("RestoreFileSystemChanges failed %s", err)
