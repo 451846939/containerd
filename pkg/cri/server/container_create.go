@@ -84,7 +84,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	log.G(ctx).Infof("isCheckpointImage %v", isCheckpointImage)
 	if isCheckpointImage {
 		//todo restore
-		sandboxConfig, config, err = c.CRImportCheckpoint(ctx, config, r.GetPodSandboxId(), ctrId)
+		sandboxConfig, config, err = c.CRImportCheckpoint(ctx, config, r.GetSandboxConfig(), r.GetPodSandboxId(), ctrId)
 		log.G(ctx).Infof("restore config : %v", config)
 		if err != nil {
 			return nil, err

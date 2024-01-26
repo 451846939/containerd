@@ -59,6 +59,7 @@ func (s *criService) checkIfCheckpointImage(ctx context.Context, input string, a
 func (c *criService) CRImportCheckpoint(
 	ctx context.Context,
 	createConfig *types.ContainerConfig,
+	podConfig *types.PodSandboxConfig,
 	sbID string,
 	ctrId *string,
 ) (sandboxConfig *types.PodSandboxConfig, containerConfig *types.ContainerConfig, retErr error) {
@@ -297,7 +298,7 @@ func (c *criService) CRImportCheckpoint(
 			Namespace: sb.Config.Metadata.Namespace,
 			Attempt:   sb.Config.Metadata.Attempt,
 		},
-		Linux: sandboxConfig.Linux,
+		Linux: podConfig.Linux,
 	}
 	return sandboxConfig, containerConfig, nil
 }
