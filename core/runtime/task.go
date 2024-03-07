@@ -83,6 +83,9 @@ type Task interface {
 	Process(ctx context.Context, id string) (ExecProcess, error)
 	// Stats returns runtime specific metrics for a task
 	Stats(ctx context.Context) (*types.Any, error)
+
+	// BundlePath returns bundle path
+	BundlePath(ctx context.Context) string
 }
 
 // ExecOpts provides additional options for additional processes running in a task

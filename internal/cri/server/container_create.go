@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -57,7 +58,47 @@ func init() {
 func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateContainerRequest) (_ *runtime.CreateContainerResponse, retErr error) {
 	config := r.GetConfig()
 	log.G(ctx).Debugf("Container config %+v", config)
+	needCreateImage := config.GetImage().GetImage()
+	//var checkpointImage containerd.Image
+	//todo  add checkpoint
+	isCheckpointImage, err := func() (bool, error) {
+		if config == nil ||
+			config.Image == nil ||
+			r.SandboxConfig == nil ||
+			r.SandboxConfig.Metadata == nil {
+			return false, nil
+		}
+		if _, err := os.Stat(config.Image.Image); err == nil {
+			log.G(ctx).Debugf(
+				"%q is a file. Assuming it is a checkpoint archive",
+				config.Image.Image,
+			)
+			return true, nil
+		}
+		// Check if this is an OCI checkpoint image
+		ok, err := c.checkIfCheckpointImage(ctx, config.Image.Image, config.Image.Annotations)
+		if err != nil {
+			log.G(ctx).Errorf("Failed to check if this is a checkpoint image: %v", err)
+			return false, fmt.Errorf("failed to check if this is a checkpoint image: %w", err)
+		}
+
+		return ok, nil
+	}()
 	sandboxConfig := r.GetSandboxConfig()
+	var ctrId *string
+	log.G(ctx).Infof("isCheckpointImage %v", isCheckpointImage)
+	if isCheckpointImage {
+		//todo restore
+		sandboxConfig, config, err = c.CRImportCheckpoint(ctx, config, r.GetSandboxConfig(), r.GetPodSandboxId(), ctrId)
+		log.G(ctx).Infof("restore config : %v", config)
+		if err != nil {
+			return nil, err
+		}
+		//print ctrId
+		log.G(ctx).Debugf("container id %v ", ctrId)
+		//return &runtime.CreateContainerResponse{ContainerId: id}, nil
+		log.G(ctx).Infof("isCheckpointImage ok create sandbox ", isCheckpointImage)
+	}
 	sandbox, err := c.sandboxStore.Get(r.GetPodSandboxId())
 	if err != nil {
 		return nil, fmt.Errorf("failed to find sandbox id %q: %w", r.GetPodSandboxId(), err)
@@ -76,7 +117,12 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 	// Generate unique id and name for the container and reserve the name.
 	// Reserve the container name to avoid concurrent `CreateContainer` request creating
 	// the same container.
-	id := util.GenerateID()
+	var id string
+	if isCheckpointImage && ctrId != nil {
+		id = *ctrId
+	} else {
+		id = util.GenerateID()
+	}
 	metadata := config.GetMetadata()
 	if metadata == nil {
 		return nil, errors.New("container config must include metadata")
@@ -323,7 +369,13 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 			}
 		}
 	}()
-
+	if isCheckpointImage {
+		container.Restore = true
+		container.RestoreArchive = needCreateImage
+		container.RestoreIsOCIImage = isCheckpointImage
+		//todo CheckpointedAt time
+		//container.Stats.CheckpointedAt = config.CheckpointedAt
+	}
 	// Add container into container store.
 	if err := c.containerStore.Add(container); err != nil {
 		return nil, fmt.Errorf("failed to add container %q into store: %w", id, err)

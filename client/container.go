@@ -20,9 +20,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/containerd/containerd/v2/core/leases"
+	"github.com/containerd/containerd/v2/core/mount"
+	"github.com/containerd/containerd/v2/defaults"
+	"github.com/containerd/log"
+	"github.com/containerd/platforms"
+	"github.com/opencontainers/image-spec/identity"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/containerd/containerd/v2/api/services/tasks/v1"
 	"github.com/containerd/containerd/v2/api/types"
@@ -463,4 +470,106 @@ func loadFifos(response *tasks.GetResponse) *cio.FIFOSet {
 		Stderr:   response.Process.Stderr,
 		Terminal: response.Process.Terminal,
 	}, closer)
+}
+
+func (c *container) MountTMPPoint(ref string, ctx context.Context) (string string, retErr error) {
+	mountPoint, err := os.MkdirTemp("", "checkpoint")
+	if err != nil {
+		return "", err
+	}
+	err = c.mountPoint(ref, mountPoint, ctx)
+	if err != nil {
+		return "", err
+	}
+	return mountPoint, nil
+}
+func (c *container) mountPoint(ref string, target string, ctx context.Context) (retErr error) {
+	snapshotter := defaults.DefaultSnapshotter
+
+	ctx, done, err := c.client.WithLease(ctx,
+		leases.WithID(target),
+		leases.WithExpiration(24*time.Hour),
+		leases.WithLabels(map[string]string{
+			"containerd.io/gc.ref.snapshot." + snapshotter: target,
+		}),
+	)
+	if err != nil && !errdefs.IsAlreadyExists(err) {
+		return err
+	}
+
+	defer func() {
+		if retErr != nil && done != nil {
+			err := done(ctx)
+			if err != nil {
+				log.G(ctx).Errorf("Failed to done %q: %v", target, err)
+				return
+			}
+		}
+	}()
+
+	//ps := context.String("platform")
+	ps := platforms.DefaultString()
+	p, err := platforms.Parse(ps)
+	if err != nil {
+		return fmt.Errorf("unable to parse platform %c: %w", ps, err)
+	}
+
+	img, err := c.client.ImageService().Get(ctx, ref)
+	if err != nil {
+		return err
+	}
+
+	i := NewImageWithPlatform(c.client, img, platforms.Only(p))
+	if err := i.Unpack(ctx, snapshotter); err != nil {
+		return fmt.Errorf("error unpacking image: %w", err)
+	}
+
+	diffIDs, err := i.RootFS(ctx)
+	if err != nil {
+		return err
+	}
+	chainID := identity.ChainID(diffIDs).String()
+	fmt.Println(chainID)
+
+	s := c.client.SnapshotService(snapshotter)
+
+	var mounts []mount.Mount
+	//if context.Bool("rw") {
+	mounts, err = s.Prepare(ctx, target, chainID)
+	//} else {
+	//	mounts, err = s.View(ctx, target, chainID)
+	//}
+	if err != nil {
+		if errdefs.IsAlreadyExists(err) {
+			mounts, err = s.Mounts(ctx, target)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	log.G(ctx).Infof("mounts %v", mounts)
+	if err := mount.All(mounts, target); err != nil {
+		if err := s.Remove(ctx, target); err != nil && !errdefs.IsNotFound(err) {
+			log.G(ctx).Errorf("Error cleaning up snapshot after mount error: %v", err)
+		}
+		return err
+	}
+	return nil
+}
+
+func (c *container) unMount(target string, ctx context.Context) error {
+	if err := mount.UnmountAll(target, 0); err != nil {
+		return err
+	}
+
+	//snapshotter := ""
+	//s := c.client.SnapshotService(snapshotter)
+	if err := c.client.LeasesService().Delete(ctx, leases.Lease{ID: target}); err != nil && !errdefs.IsNotFound(err) {
+		return fmt.Errorf("error deleting lease: %w", err)
+	}
+	log.G(ctx).Infof("Removing %q", target)
+	//if err := s.Remove(ctx, target); err != nil && !errdefs.IsNotFound(err) {
+	//	return fmt.Errorf("error removing snapshot: %w", err)
+	//}
+	return nil
 }

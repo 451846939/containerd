@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/containerd/containerd/v2"
 	"io"
 	"os"
 	"path/filepath"
@@ -197,6 +198,10 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		TaskOptions:    r.Options,
 		SandboxID:      container.SandboxID,
 	}
+	if checkpointPath != "" && r.Checkpoint == nil {
+		// fixme 这里暂时使用写死的测试流程
+		opts.Checkpoint = checkpointPath + "/checkpoint"
+	}
 	if r.RuntimePath != "" {
 		opts.Runtime = r.RuntimePath
 	}
@@ -219,6 +224,23 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		return nil, errdefs.ToGRPC(fmt.Errorf("task %s: %w", r.ContainerID, errdefs.ErrAlreadyExists))
 	}
 	c, err := rtime.Create(ctx, r.ContainerID, opts)
+
+	bundlePath := c.BundlePath(ctx)
+	//todo 修改config.json 里面的nspath 符合目前的sandbox否则无法恢复
+	if checkpointPath != "" && r.Checkpoint == nil {
+		log.G(ctx).Infof("CopyImageDiff befor checkpointPath is %s", checkpointPath)
+		containerd.PrintListFiles(ctx, bundlePath)
+		containerd.CopyImageDiff(ctx, checkpointPath, bundlePath)
+		log.G(ctx).Infof("CopyImageDiff after checkpointPath is %s", checkpointPath)
+		containerd.PrintListFiles(ctx, bundlePath)
+
+		err := containerd.RestoreFileSystemChanges(ctx, bundlePath)
+		if err != nil {
+			log.G(ctx).Errorf("RestoreFileSystemChanges failed %s", err)
+			return nil, err
+		}
+	}
+
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)
 	}

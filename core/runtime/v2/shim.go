@@ -760,3 +760,7 @@ func (s *shimTask) State(ctx context.Context) (runtime.State, error) {
 		ExitedAt:   protobuf.FromTimestamp(response.ExitedAt),
 	}, nil
 }
+
+func (s *shimTask) BundlePath(ctx context.Context) string {
+	return s.Bundle()
+}

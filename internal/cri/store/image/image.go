@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/containerd/log"
 	"sync"
 
 	"github.com/containerd/containerd/v2/core/content"
@@ -53,6 +54,8 @@ type Image struct {
 	ImageSpec imagespec.Image
 	// Pinned image to prevent it from garbage collection
 	Pinned bool
+	// Annotations contains arbitrary metadata relating to the targeted content.
+	Annotations map[string]string
 }
 
 // Getter is used to get images but does not make changes
@@ -175,15 +178,17 @@ func (s *Store) getImage(ctx context.Context, i images.Image) (*Image, error) {
 		return nil, fmt.Errorf("unmarshal image config %s: %w", blob, err)
 	}
 
+	log.G(ctx).Infof("manifest: %v", desc)
 	pinned := i.Labels[labels.PinnedImageLabelKey] == labels.PinnedImageLabelValue
 
 	return &Image{
-		ID:         id,
-		References: []string{i.Name},
-		ChainID:    chainID.String(),
-		Size:       size,
-		ImageSpec:  spec,
-		Pinned:     pinned,
+		ID:          id,
+		References:  []string{i.Name},
+		ChainID:     chainID.String(),
+		Size:        size,
+		ImageSpec:   spec,
+		Pinned:      pinned,
+		Annotations: desc.Annotations,
 	}, nil
 
 }

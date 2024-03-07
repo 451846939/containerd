@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/containerd/containerd/v2/internal/cri/annotations"
 	"os"
 	"path/filepath"
 	"sort"
@@ -72,7 +73,8 @@ func WithProcessArgs(config *runtime.ContainerConfig, image *imagespec.ImageConf
 				}
 			}
 		}
-		if len(command) == 0 && len(args) == 0 {
+
+		if config.Annotations[annotations.CheckpointAnnotationName] == "" && len(command) == 0 && len(args) == 0 {
 			return errors.New("no command specified")
 		}
 		return oci.WithProcessArgs(append(command, args...)...)(ctx, client, c, s)
