@@ -139,7 +139,7 @@ func withCheckpointOpts(
 			}
 			opts, _ := r.Options.(*options.CheckpointOptions)
 
-			opts.Exit = !leaveRunning
+			opts.Exit = leaveRunning
 			opts.WorkPath = rootDir
 			if exportToArchive {
 				opts.ImagePath = filepath.Join(
@@ -153,7 +153,7 @@ func withCheckpointOpts(
 			}
 			opts, _ := r.Options.(*runctypes.CheckpointOptions)
 
-			opts.Exit = !leaveRunning
+			opts.Exit = leaveRunning
 			opts.WorkPath = rootDir
 			if exportToArchive {
 				opts.ImagePath = filepath.Join(
