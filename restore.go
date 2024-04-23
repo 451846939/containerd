@@ -14,6 +14,7 @@ import (
 	"github.com/opencontainers/image-spec/identity"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -272,7 +273,23 @@ func RestoreFileSystemChanges(ctx context.Context, mountPoint string) error {
 	//dir := c.getContainerRootDir(ctr.ID)
 	log.G(ctx).Infof("restoreFileSystemChanges Restoring root file-system changes from %s", mountPoint)
 	PrintListFiles(ctx, mountPoint)
-	if err := CRApplyRootFsDiffTar(ctx, mountPoint, mountPoint); err != nil {
+	//-rw-r--r-- 1 root root     89 4月  21 15:25 address
+	//drwx------ 2 root root   1320 4月  21 15:25 checkpoint
+	//-rw-r--r-- 1 root root  65391 4月  21 15:25 config.json
+	//drwxr-xr-x 3 root root     60 4月   9 11:40 data
+	//prwx------ 1 root root      0 4月  21 15:25 log
+	//-rw-r--r-- 1 root root   3221 4月  21 15:25 log.json
+	//drwxr-xr-x 6 root root    120 4月  19 16:45 MWSaved
+	//-rw------- 1 root root     47 4月  21 15:25 options.json
+	//drwx------ 3 root root     60 4月  19 16:45 root
+	//drwxr-xr-x 1 root root   4096 4月  21 15:25 rootfs
+	//-rw-r--r-- 1 root root 247296 4月  21 15:25 rootfs-diff.tar
+	//drwxr-xr-x 3 root root     60 4月  19 16:23 run
+	//-rw------- 1 root root      0 4月  21 15:25 runtime
+	//-rw------- 1 root root     49 4月  21 15:25 shim-binary-path
+	//-rw-r--r-- 1 root root     53 4月  21 15:25 stats-dump
+	//lrwxrwxrwx 1 root root    121 4月  21 15:25 work -> /var/lib/containerd/io.containerd.runtime.v2.task/k8s.io/4b9cf76845fecec664ec33d9678233f90268617ab2ad231c1c9068d6103da3b5
+	if err := CRApplyRootFsDiffTar(ctx, mountPoint, path.Join(mountPoint, "rootfs")); err != nil {
 		return err
 	}
 
