@@ -214,7 +214,7 @@ func withCheckpointOpts(rt, rootDir string) client.CheckpointTaskOpts {
 			}
 			opts, _ := r.Options.(*options.CheckpointOptions)
 
-			opts.Exit = !leaveRunning
+			opts.Exit = leaveRunning
 			opts.WorkPath = rootDir
 		}
 		return nil
