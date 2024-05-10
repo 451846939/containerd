@@ -244,7 +244,9 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		return nil, errdefs.ToGRPC(fmt.Errorf("task %s: %w", r.ContainerID, errdefs.ErrAlreadyExists))
 	}
 	c, err := rtime.Create(ctx, r.ContainerID, opts)
-
+	if err != nil {
+		return nil, errdefs.ToGRPC(err)
+	}
 	bundlePath := c.BundlePath(ctx)
 	//todo 修改config.json 里面的nspath 符合目前的sandbox否则无法恢复
 	if checkpointPath != "" && r.Checkpoint == nil {
@@ -260,6 +262,7 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 			return nil, err
 		}
 	}
+
 	if err != nil {
 		return nil, errdefs.ToGRPC(err)
 	}
