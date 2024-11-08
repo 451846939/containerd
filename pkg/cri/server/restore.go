@@ -454,8 +454,14 @@ func runInNamespace(pid uint32, fn func() error) error {
 
 func applyIptablesRules(ctx context.Context, pid uint32, markValue int) error {
 	// Define iptables rules as a single line string
-	rules := fmt.Sprintf("*filter :CRIU - [0:0] -I INPUT -j CRIU -I OUTPUT -j CRIU -A CRIU -m mark --mark 0x%X -j ACCEPT -A CRIU -j DROP COMMIT", markValue)
-
+	rules := fmt.Sprintf(`*filter
+:CRIU - [0:0]
+-I INPUT -j CRIU
+-I OUTPUT -j CRIU
+-A CRIU -m mark --mark 0x%X -j ACCEPT
+-A CRIU -j DROP
+COMMIT
+`, markValue)
 	log.G(ctx).Infof("Applying iptables rules: %s", rules)
 	return runInNamespace(pid, func() error {
 		cmd := exec.Command("sh", "-c", fmt.Sprintf("echo '%s' | iptables-restore", rules))
@@ -470,7 +476,13 @@ func applyIptablesRules(ctx context.Context, pid uint32, markValue int) error {
 }
 
 func removeIptablesRules(ctx context.Context, pid uint32) error {
-	rules := "*filter -D INPUT -j CRIU -D OUTPUT -j CRIU -X CRIU COMMIT"
+	// 定义删除 iptables 规则的配置，确保每行以 \n 结束
+	rules := `*filter
+-D INPUT -j CRIU
+-D OUTPUT -j CRIU
+-X CRIU
+COMMIT
+`
 	log.G(ctx).Infof("Removing iptables rules: %s", rules)
 	return runInNamespace(pid, func() error {
 		cmd := exec.Command("sh", "-c", fmt.Sprintf("echo '%s' | iptables-restore", rules))
