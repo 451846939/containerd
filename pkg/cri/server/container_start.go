@@ -274,11 +274,11 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 		sandboxPid, err := strconv.ParseUint(podId, 10, 32)
 		log.G(ctx).Infof("start container %q sandboxPid %q labels: %v", id, sandboxPid, labels)
 		// Remove iptables rules
-		if err := removeIptablesRules(ctx, uint32(sandboxPid)); err != nil {
-			log.G(ctx).Errorf("Error removing iptables rules: %v\n", err)
-		} else {
-			log.G(ctx).Infof("iptables rules removed successfully.")
-		}
+		//if err := removeIptablesRules(ctx, uint32(sandboxPid)); err != nil {
+		//	log.G(ctx).Errorf("Error removing iptables rules: %v\n", err)
+		//} else {
+		//	log.G(ctx).Infof("iptables rules removed successfully.")
+		//}
 	}
 	// Update container start timestamp.
 	if err := cntr.Status.UpdateSync(func(status containerstore.Status) (containerstore.Status, error) {

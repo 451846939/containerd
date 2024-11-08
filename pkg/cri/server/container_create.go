@@ -106,11 +106,11 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 		markValue := 0xC114
 		log.G(ctx).Infof("Apply iptables rules container podid %v pid %v markValue %v", r.GetPodSandboxId(), sandboxPid, markValue)
 		// Apply iptables rules
-		if err := applyIptablesRules(ctx, sandboxPid, markValue); err != nil {
-			log.G(ctx).Errorf("Error applying iptables rules: %v\n", err)
-		} else {
-			log.G(ctx).Infof("iptables rules applied successfully.")
-		}
+		//if err := applyIptablesRules(ctx, sandboxPid, markValue); err != nil {
+		//	log.G(ctx).Errorf("Error applying iptables rules: %v\n", err)
+		//} else {
+		//	log.G(ctx).Infof("iptables rules applied successfully.")
+		//}
 
 		//return &runtime.CreateContainerResponse{ContainerId: id}, nil
 		log.G(ctx).Infof("isCheckpointImage ok create sandbox ", isCheckpointImage)
