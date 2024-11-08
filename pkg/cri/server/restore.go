@@ -421,33 +421,41 @@ func printListFiles(ctx context.Context, dir string) {
 }
 
 func runInNamespace(pid uint32, fn func() error) error {
-	// 打开 sandbox 进程的网络命名空间文件
+	// 打开目标进程的网络命名空间文件
 	nsPath := fmt.Sprintf("/proc/%d/ns/net", pid)
 	fd, err := unix.Open(nsPath, unix.O_RDONLY, 0)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open network namespace: %v", err)
 	}
 	defer unix.Close(fd)
 
-	// 切换到指定网络命名空间
+	// 保存当前网络命名空间，以便稍后切回来
+	originalNS, err := unix.Open("/proc/self/ns/net", unix.O_RDONLY, 0)
+	if err != nil {
+		return fmt.Errorf("failed to save original network namespace: %v", err)
+	}
+	defer unix.Close(originalNS)
+
+	// 切换到指定的网络命名空间
 	if err := unix.Setns(fd, unix.CLONE_NEWNET); err != nil {
-		return err
+		return fmt.Errorf("failed to set network namespace: %v", err)
 	}
 
-	// 执行指定的操作
+	// 使用 defer 确保在函数结束后切回原始命名空间
+	defer func() {
+		if err := unix.Setns(originalNS, unix.CLONE_NEWNET); err != nil {
+			fmt.Printf("failed to restore original network namespace: %v\n", err)
+		}
+	}()
+
+	// 在指定命名空间中执行操作
 	return fn()
 }
 
 func applyIptablesRules(ctx context.Context, pid uint32, markValue int) error {
-	rules := fmt.Sprintf(`
-	*filter
-	:CRIU - [0:0]
-	-I INPUT -j CRIU
-	-I OUTPUT -j CRIU
-	-A CRIU -m mark --mark 0x%X -j ACCEPT
-	-A CRIU -j DROP
-	COMMIT
-	`, markValue)
+	// Define iptables rules as a single line string
+	rules := fmt.Sprintf("*filter :CRIU - [0:0] -I INPUT -j CRIU -I OUTPUT -j CRIU -A CRIU -m mark --mark 0x%X -j ACCEPT -A CRIU -j DROP COMMIT", markValue)
+
 	log.G(ctx).Infof("Applying iptables rules: %s", rules)
 	return runInNamespace(pid, func() error {
 		cmd := exec.Command("sh", "-c", fmt.Sprintf("echo '%s' | iptables-restore", rules))
@@ -462,13 +470,7 @@ func applyIptablesRules(ctx context.Context, pid uint32, markValue int) error {
 }
 
 func removeIptablesRules(ctx context.Context, pid uint32) error {
-	rules := `
-	*filter
-	-D INPUT -j CRIU
-	-D OUTPUT -j CRIU
-	-X CRIU
-	COMMIT
-	`
+	rules := "*filter -D INPUT -j CRIU -D OUTPUT -j CRIU -X CRIU COMMIT"
 	log.G(ctx).Infof("Removing iptables rules: %s", rules)
 	return runInNamespace(pid, func() error {
 		cmd := exec.Command("sh", "-c", fmt.Sprintf("echo '%s' | iptables-restore", rules))
