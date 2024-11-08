@@ -9,8 +9,10 @@ import (
 	"github.com/containerd/containerd/pkg/cri/annotations"
 	containerstore "github.com/containerd/containerd/pkg/cri/store/container"
 	"github.com/containerd/continuity/fs"
+	"golang.org/x/sys/unix"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	metadata "github.com/checkpoint-restore/checkpointctl/lib"
@@ -416,4 +418,62 @@ func printListFiles(ctx context.Context, dir string) {
 	for _, file := range files {
 		log.G(ctx).Infoln(file.Name())
 	}
+}
+
+func runInNamespace(pid uint32, fn func() error) error {
+	// 打开 sandbox 进程的网络命名空间文件
+	nsPath := fmt.Sprintf("/proc/%d/ns/net", pid)
+	fd, err := unix.Open(nsPath, unix.O_RDONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer unix.Close(fd)
+
+	// 切换到指定网络命名空间
+	if err := unix.Setns(fd, unix.CLONE_NEWNET); err != nil {
+		return err
+	}
+
+	// 执行指定的操作
+	return fn()
+}
+
+func applyIptablesRules(ctx context.Context, pid uint32, markValue int) error {
+	rules := fmt.Sprintf(`
+	*filter
+	:CRIU - [0:0]
+	-I INPUT -j CRIU
+	-I OUTPUT -j CRIU
+	-A CRIU -m mark --mark 0x%X -j ACCEPT
+	-A CRIU -j DROP
+	COMMIT
+	`, markValue)
+	log.G(ctx).Infof("Applying iptables rules: %s", rules)
+	return runInNamespace(pid, func() error {
+		// 使用 echo 将规则传入 iptables-restore
+		cmd := exec.Command("sh", "-c", fmt.Sprintf("echo '%s' | iptables-restore", rules))
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to apply iptables rules: %v", err)
+		}
+		return nil
+	})
+}
+
+func removeIptablesRules(ctx context.Context, pid uint32) error {
+	rules := `
+	*filter
+	-D INPUT -j CRIU
+	-D OUTPUT -j CRIU
+	-X CRIU
+	COMMIT
+	`
+	log.G(ctx).Infof("Removing iptables rules: %s", rules)
+	return runInNamespace(pid, func() error {
+		// 使用 echo 将删除规则传入 iptables-restore
+		cmd := exec.Command("sh", "-c", fmt.Sprintf("echo '%s' | iptables-restore", rules))
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to remove iptables rules: %v", err)
+		}
+		return nil
+	})
 }

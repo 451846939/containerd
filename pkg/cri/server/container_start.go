@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/containerd/containerd"
@@ -263,6 +264,22 @@ func (c *criService) StartContainer(ctx context.Context, r *runtime.StartContain
 		return nil, fmt.Errorf("failed to start containerd task %q: %w", id, err)
 	}
 
+	if cntr.Restore {
+		labels, err := cntr.Container.Labels(ctx)
+		if err != nil {
+			return nil, err
+		}
+		podId := labels["PodPid"]
+		//podId string cover uint32
+		sandboxPid, err := strconv.ParseUint(podId, 10, 32)
+		log.G(ctx).Infof("start container %q sandboxPid %q labels: %v", id, sandboxPid, labels)
+		// Remove iptables rules
+		if err := removeIptablesRules(ctx, uint32(sandboxPid)); err != nil {
+			log.G(ctx).Errorf("Error removing iptables rules: %v\n", err)
+		} else {
+			log.G(ctx).Infof("iptables rules removed successfully.")
+		}
+	}
 	// Update container start timestamp.
 	if err := cntr.Status.UpdateSync(func(status containerstore.Status) (containerstore.Status, error) {
 		status.Pid = task.Pid()

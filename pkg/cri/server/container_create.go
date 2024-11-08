@@ -78,22 +78,7 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 
 		return ok, nil
 	}()
-	log.G(ctx).Debugf("Container config %+v", config)
-	sandboxConfig := r.GetSandboxConfig()
-	var ctrId *string
-	log.G(ctx).Infof("isCheckpointImage %v", isCheckpointImage)
-	if isCheckpointImage {
-		//todo restore
-		sandboxConfig, config, err = c.CRImportCheckpoint(ctx, config, r.GetSandboxConfig(), r.GetPodSandboxId(), ctrId)
-		log.G(ctx).Infof("restore config : %v", config)
-		if err != nil {
-			return nil, err
-		}
-		//print ctrId
-		log.G(ctx).Debugf("container id %v ", ctrId)
-		//return &runtime.CreateContainerResponse{ContainerId: id}, nil
-		log.G(ctx).Infof("isCheckpointImage ok create sandbox ", isCheckpointImage)
-	}
+
 	sandbox, err := c.sandboxStore.Get(r.GetPodSandboxId())
 	if err != nil {
 		return nil, fmt.Errorf("failed to find sandbox id %q: %w", r.GetPodSandboxId(), err)
@@ -104,6 +89,32 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 		return nil, fmt.Errorf("failed to get sandbox container task: %w", err)
 	}
 	sandboxPid := s.Pid()
+
+	log.G(ctx).Debugf("Container config %+v", config)
+	sandboxConfig := r.GetSandboxConfig()
+	var ctrId *string
+	log.G(ctx).Infof("isCheckpointImage %v", isCheckpointImage)
+	if isCheckpointImage {
+		//todo restore
+		sandboxConfig, config, err = c.CRImportCheckpoint(ctx, config, r.GetSandboxConfig(), r.GetPodSandboxId(), ctrId, sandboxPid)
+		log.G(ctx).Infof("restore config : %v", config)
+		if err != nil {
+			return nil, err
+		}
+		//print ctrId
+		log.G(ctx).Debugf("container id %v ", ctrId)
+		markValue := 0xC114
+		log.G(ctx).Infof("Apply iptables rules container podid %v pid %v markValue %v", r.GetPodSandboxId(), sandboxPid, markValue)
+		// Apply iptables rules
+		if err := applyIptablesRules(ctx, sandboxPid, markValue); err != nil {
+			log.G(ctx).Errorf("Error applying iptables rules: %v\n", err)
+		} else {
+			log.G(ctx).Infof("iptables rules applied successfully.")
+		}
+
+		//return &runtime.CreateContainerResponse{ContainerId: id}, nil
+		log.G(ctx).Infof("isCheckpointImage ok create sandbox ", isCheckpointImage)
+	}
 
 	// Generate unique id and name for the container and reserve the name.
 	// Reserve the container name to avoid concurrent `CreateContainer` request creating

@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/context"
 	types "k8s.io/cri-api/pkg/apis/runtime/v1"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -62,6 +63,7 @@ func (c *criService) CRImportCheckpoint(
 	podConfig *types.PodSandboxConfig,
 	sbID string,
 	ctrId *string,
+	podPid uint32,
 ) (sandboxConfig *types.PodSandboxConfig, containerConfig *types.ContainerConfig, retErr error) {
 	mountPoint, err := os.MkdirTemp("", "checkpoint")
 	if err != nil {
@@ -79,6 +81,9 @@ func (c *criService) CRImportCheckpoint(
 	createMounts := createConfig.Mounts
 	createAnnotations := createConfig.Annotations
 	createLabels := createConfig.Labels
+	createLabels["PodPid"] = strconv.Itoa(int(podPid))
+	createLabels["PodId"] = sbID
+	createLabels[annotations.CheckpointAnnotationName] = "checkpoint"
 
 	checkpointIsOCIImage, err := c.checkIfCheckpointImage(ctx, input, createConfig.Image.Annotations)
 	if err != nil {
