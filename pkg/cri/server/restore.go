@@ -450,10 +450,12 @@ func applyIptablesRules(ctx context.Context, pid uint32, markValue int) error {
 	`, markValue)
 	log.G(ctx).Infof("Applying iptables rules: %s", rules)
 	return runInNamespace(pid, func() error {
-		// 使用 echo 将规则传入 iptables-restore
 		cmd := exec.Command("sh", "-c", fmt.Sprintf("echo '%s' | iptables-restore", rules))
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to apply iptables rules: %v", err)
+
+		// 捕获标准错误输出
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to apply iptables rules: %v, output: %s", err, string(output))
 		}
 		return nil
 	})
@@ -469,10 +471,12 @@ func removeIptablesRules(ctx context.Context, pid uint32) error {
 	`
 	log.G(ctx).Infof("Removing iptables rules: %s", rules)
 	return runInNamespace(pid, func() error {
-		// 使用 echo 将删除规则传入 iptables-restore
 		cmd := exec.Command("sh", "-c", fmt.Sprintf("echo '%s' | iptables-restore", rules))
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to remove iptables rules: %v", err)
+
+		// 捕获标准错误输出
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to apply iptables rules: %v, output: %s", err, string(output))
 		}
 		return nil
 	})
