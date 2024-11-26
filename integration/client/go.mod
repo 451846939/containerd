@@ -18,7 +18,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/otel v1.12.0
 	go.opentelemetry.io/otel/sdk v1.12.0
-	golang.org/x/sys v0.4.0
+	golang.org/x/sys v0.25.0
 )
 
 require (
@@ -63,7 +63,7 @@ require (
 	golang.org/x/tools v0.5.0 // indirect
 	google.golang.org/genproto v0.0.0-20221206210731-b1a01be3a5f6 // indirect
 	google.golang.org/grpc v1.52.0 // indirect
-	google.golang.org/protobuf v1.28.1 // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 

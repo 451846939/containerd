@@ -92,8 +92,16 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 
 	log.G(ctx).Debugf("Container config %+v", config)
 	sandboxConfig := r.GetSandboxConfig()
-	var ctrId *string
 	log.G(ctx).Infof("isCheckpointImage %v", isCheckpointImage)
+
+	// Generate unique id and name for the container and reserve the name.
+	// Reserve the container name to avoid concurrent `CreateContainer` request creating
+	// the same container.
+	id := util.GenerateID()
+	var ctrId *string
+	// container id 给 ctrId 赋值
+	ctrId = &id
+
 	if isCheckpointImage {
 		//todo restore
 		sandboxConfig, config, err = c.CRImportCheckpoint(ctx, config, r.GetSandboxConfig(), r.GetPodSandboxId(), ctrId, sandboxPid)
@@ -114,17 +122,11 @@ func (c *criService) CreateContainer(ctx context.Context, r *runtime.CreateConta
 
 		//return &runtime.CreateContainerResponse{ContainerId: id}, nil
 		log.G(ctx).Infof("isCheckpointImage ok create sandbox ", isCheckpointImage)
+		if ctrId != nil {
+			id = *ctrId
+		}
 	}
 
-	// Generate unique id and name for the container and reserve the name.
-	// Reserve the container name to avoid concurrent `CreateContainer` request creating
-	// the same container.
-	var id string
-	if isCheckpointImage && ctrId != nil {
-		id = *ctrId
-	} else {
-		id = util.GenerateID()
-	}
 	metadata := config.GetMetadata()
 	if metadata == nil {
 		return nil, errors.New("container config must include metadata")

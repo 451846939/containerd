@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	metadata "github.com/checkpoint-restore/checkpointctl/lib"
+
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/leases"
@@ -152,6 +153,7 @@ func (c *criService) CRImportCheckpoint(
 	if _, err := metadata.ReadJSONFile(config, mountPoint, metadata.ConfigDumpFile); err != nil {
 		return nil, nil, fmt.Errorf("failed to read %q: %w", metadata.ConfigDumpFile, err)
 	}
+	//c.PullImage(ctx, &types.PullImageRequest{Image: &types.ImageSpec{Image: config.RootfsImageName},SandboxConfig: podConfig})
 	//_, retErr = c.PullImage(ctx, &types.PullImageRequest{
 	//	Image: &types.ImageSpec{
 	//		Image: config.RootfsImageName,
@@ -313,8 +315,15 @@ func (c *criService) CRImportCheckpoint(
 		Linux:        podConfig.Linux,
 		Windows:      podConfig.Windows,
 	}
+
+	err = c.updateCgroupPath(ctx, dumpSpec, mountPoint, sandboxConfig, ctrId)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return sandboxConfig, containerConfig, nil
 }
+
 func (c *criService) mountTMPPoint(ref string, ctx context.Context) (string string, retErr error) {
 	mountPoint, err := os.MkdirTemp("", "checkpoint")
 	if err != nil {
