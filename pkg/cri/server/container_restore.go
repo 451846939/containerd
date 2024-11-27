@@ -316,11 +316,6 @@ func (c *criService) CRImportCheckpoint(
 		Windows:      podConfig.Windows,
 	}
 
-	err = c.updateCgroupPath(ctx, dumpSpec, mountPoint, sandboxConfig, ctrId)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	return sandboxConfig, containerConfig, nil
 }
 

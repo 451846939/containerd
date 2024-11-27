@@ -20,7 +20,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/checkpoint-restore/go-criu/v7/crit"
+	"github.com/checkpoint-restore/go-criu/v7/crit/cli"
+	"github.com/checkpoint-restore/go-criu/v7/crit/images/cgroup"
 	"github.com/containerd/containerd"
+	"github.com/containerd/containerd/oci"
 	"io"
 	"os"
 	"path"
@@ -256,7 +260,13 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		log.G(ctx).Infof("CopyImageDiff after checkpointPath is %s", checkpointPath)
 		containerd.PrintListFiles(ctx, bundlePath)
 
-		err := containerd.RestoreFileSystemChanges(ctx, bundlePath)
+		err = UpdateCgroupPath(ctx, checkpointPath, bundlePath)
+
+		if err != nil {
+			log.G(ctx).Errorf("UpdateCgroupPath failed %s", err)
+			return nil, err
+		}
+		err = containerd.RestoreFileSystemChanges(ctx, bundlePath)
 		if err != nil {
 			log.G(ctx).Errorf("RestoreFileSystemChanges failed %s", err)
 			return nil, err
@@ -278,6 +288,114 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		ContainerID: r.ContainerID,
 		Pid:         pid,
 	}, nil
+}
+func UpdateCgroupPath(ctx context.Context, checkpointPath string, bundlePath string) error {
+	log.G(ctx).Infof("Updating cgroup path in cgroup.img")
+
+	// checkpoint 挂载点路径
+	//checkpointMount := filepath.Join("/", mountPoint, "checkpoint")
+	checkpointMount := checkpointPath
+	dumpSpec := new(oci.Spec)
+	if _, err := crmetadata.ReadJSONFile(dumpSpec, checkpointPath, crmetadata.SpecDumpFile); err != nil {
+		return fmt.Errorf("failed to read %q: %w", "checkpointPath config.json", err)
+	}
+
+	cgroupPath := dumpSpec.Linux.CgroupsPath
+	// 当前容器的 cgroup 路径
+	config := new(oci.Spec)
+	if _, err := crmetadata.ReadJSONFile(config, bundlePath, "config.json"); err != nil {
+		return fmt.Errorf("failed to read %q: %w", "bundlePath config.json", err)
+	}
+
+	currentContainerCgroup := config.Linux.CgroupsPath
+
+	// cgroup.img 文件路径
+	cgroupImgPath := filepath.Join(checkpointMount, "cgroup.img")
+
+	// 打开 cgroup.img 文件用于读取和写入
+	imgFile, err := os.Open(cgroupImgPath)
+	if err != nil {
+		log.G(ctx).Errorf("Failed to open cgroup.img for reading: %v", err)
+		return fmt.Errorf("failed to open cgroup.img: %w", err)
+	}
+	defer imgFile.Close()
+
+	// 创建临时文件保存修改后的 cgroup.img
+	modifiedImgPath := cgroupImgPath + ".modified"
+	modifiedFile, err := os.Create(modifiedImgPath)
+	if err != nil {
+		log.G(ctx).Errorf("Failed to create modified cgroup.img: %v", err)
+		return fmt.Errorf("failed to create modified cgroup.img: %w", err)
+	}
+	defer modifiedFile.Close()
+
+	// 使用 crit.New 创建 CRIT 服务实例
+	critService := crit.New(imgFile, modifiedFile, "", false, false)
+
+	// 获取 cgroup.img 的 entry 类型
+	entryType, err := cli.GetEntryTypeFromImg(imgFile)
+	if err != nil {
+		log.G(ctx).Errorf("Failed to get entry type from cgroup.img: %v", err)
+		return fmt.Errorf("failed to get entry type: %w", err)
+	}
+
+	// 解码 cgroup.img
+	decodedImg, err := critService.Decode(entryType)
+	if err != nil {
+		log.G(ctx).Errorf("Failed to decode cgroup.img: %v", err)
+		return fmt.Errorf("failed to decode cgroup.img: %w", err)
+	}
+
+	// 遍历并替换路径
+	modified := false
+	for _, entry := range decodedImg.Entries {
+		cgroupEntry, ok := entry.Message.(*cgroup.CgroupEntry)
+		if !ok {
+			continue
+		}
+
+		// 遍历 Sets
+		for _, set := range cgroupEntry.GetSets() {
+			for _, ctl := range set.GetCtls() {
+				if ctl.GetPath() == cgroupPath {
+					log.G(ctx).Infof("Replacing cgroup path in Set: %s -> %s", ctl.GetPath(), currentContainerCgroup)
+					ctl.Path = &currentContainerCgroup
+					modified = true
+				}
+			}
+		}
+
+		// 遍历 Controllers
+		for _, controller := range cgroupEntry.GetControllers() {
+			for _, dir := range controller.GetDirs() {
+				if dir.GetDirName() == cgroupPath {
+					log.G(ctx).Infof("Replacing cgroup path in Controller: %s -> %s", dir.GetDirName(), currentContainerCgroup)
+					dir.DirName = &currentContainerCgroup
+					modified = true
+				}
+			}
+		}
+	}
+
+	// 如果路径被修改，重新编码并保存
+	if modified {
+		err = critService.Encode(decodedImg)
+		if err != nil {
+			log.G(ctx).Errorf("Failed to encode modified cgroup.img: %v", err)
+			return fmt.Errorf("failed to encode modified cgroup.img: %w", err)
+		}
+
+		// 替换原始文件
+		err = os.Rename(modifiedImgPath, cgroupImgPath)
+		if err != nil {
+			log.G(ctx).Errorf("Failed to replace original cgroup.img with modified version: %v", err)
+			return fmt.Errorf("failed to replace original cgroup.img: %w", err)
+		}
+		log.G(ctx).Infof("Successfully updated cgroup path in cgroup.img")
+	} else {
+		log.G(ctx).Infof("No changes made to cgroup.img")
+	}
+	return nil
 }
 
 func (l *local) Start(ctx context.Context, r *api.StartRequest, _ ...grpc.CallOption) (*api.StartResponse, error) {
