@@ -260,7 +260,7 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		log.G(ctx).Infof("CopyImageDiff after checkpointPath is %s", checkpointPath)
 		containerd.PrintListFiles(ctx, bundlePath)
 
-		err = UpdateCgroupPath(ctx, opts.Checkpoint, bundlePath)
+		err = UpdateCgroupPath(ctx, checkpointPath, bundlePath)
 
 		if err != nil {
 			log.G(ctx).Errorf("UpdateCgroupPath failed %s", err)
@@ -289,14 +289,14 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		Pid:         pid,
 	}, nil
 }
-func UpdateCgroupPath(ctx context.Context, checkpointPath string, bundlePath string) error {
+func UpdateCgroupPath(ctx context.Context, mountPoint string, bundlePath string) error {
 	log.G(ctx).Infof("Updating cgroup path in cgroup.img")
 
 	// checkpoint 挂载点路径
-	//checkpointMount := filepath.Join("/", mountPoint, "checkpoint")
-	checkpointMount := checkpointPath
+	checkpointMount := filepath.Join("/", mountPoint, "checkpoint")
+	//checkpointMount := checkpointPath
 	dumpSpec := new(oci.Spec)
-	if _, err := crmetadata.ReadJSONFile(dumpSpec, checkpointPath, crmetadata.SpecDumpFile); err != nil {
+	if _, err := crmetadata.ReadJSONFile(dumpSpec, mountPoint, crmetadata.SpecDumpFile); err != nil {
 		return fmt.Errorf("failed to read %q: %w", "checkpointPath config.json", err)
 	}
 
