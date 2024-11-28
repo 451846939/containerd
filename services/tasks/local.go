@@ -358,7 +358,7 @@ func UpdateCgroupPath(ctx context.Context, mountPoint string, bundlePath string)
 		for _, set := range cgroupEntry.GetSets() {
 			for _, ctl := range set.GetCtls() {
 				if ctl.GetPath() == cgroupPath {
-					log.G(ctx).Infof("Replacing cgroup path in Set: %s -> %s", ctl.GetPath(), currentContainerCgroup)
+					log.G(ctx).Infof("Replacing %s cgroup path in Set: %s -> %s", ctl.GetName(), ctl.GetPath(), currentContainerCgroup)
 					ctl.Path = &currentContainerCgroup
 					modified = true
 				}
@@ -369,8 +369,9 @@ func UpdateCgroupPath(ctx context.Context, mountPoint string, bundlePath string)
 		for _, controller := range cgroupEntry.GetControllers() {
 			for _, dir := range controller.GetDirs() {
 				// 修改 dir_name
+				log.G(ctx).Infof("Replacing %s cgroup path in Controller.Dir: %s -> %s", controller.GetCnames(), dir.GetDirName(), currentContainerCgroup)
 				if dir.GetDirName() == cgroupPath {
-					log.G(ctx).Infof("Replacing cgroup path in Controller.Dir: %s -> %s", dir.GetDirName(), currentContainerCgroup)
+					log.G(ctx).Infof("Replacing %s cgroup path in Controller.Dir: %s -> %s ok", controller.GetCnames(), dir.GetDirName(), currentContainerCgroup)
 					dir.DirName = &currentContainerCgroup
 					modified = true
 				}
