@@ -365,13 +365,23 @@ func UpdateCgroupPath(ctx context.Context, mountPoint string, bundlePath string)
 			}
 		}
 
-		// 遍历 Controllers
+		// 遍历 Controllers 并修改路径
 		for _, controller := range cgroupEntry.GetControllers() {
 			for _, dir := range controller.GetDirs() {
+				// 修改 dir_name
 				if dir.GetDirName() == cgroupPath {
-					log.G(ctx).Infof("Replacing cgroup path in Controller: %s -> %s", dir.GetDirName(), currentContainerCgroup)
+					log.G(ctx).Infof("Replacing cgroup path in Controller.Dir: %s -> %s", dir.GetDirName(), currentContainerCgroup)
 					dir.DirName = &currentContainerCgroup
 					modified = true
+				}
+
+				// 遍历并修改 children 中的路径
+				for _, child := range dir.GetChildren() {
+					if child.GetDirName() == cgroupPath {
+						log.G(ctx).Infof("Replacing cgroup path in Controller.Dir.Children: %s -> %s", child.GetDirName(), currentContainerCgroup)
+						child.DirName = &currentContainerCgroup
+						modified = true
+					}
 				}
 			}
 		}
