@@ -260,7 +260,7 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		log.G(ctx).Infof("CopyImageDiff after checkpointPath is %s", checkpointPath)
 		containerd.PrintListFiles(ctx, bundlePath)
 
-		err = UpdateCgroupPath(ctx, checkpointPath, bundlePath)
+		err = UpdateCgroupPath(ctx, opts.Checkpoint, bundlePath)
 
 		if err != nil {
 			log.G(ctx).Errorf("UpdateCgroupPath failed %s", err)
