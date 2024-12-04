@@ -390,19 +390,29 @@ func UpdateCgroupPath(ctx context.Context, mountPoint string, bundlePath string)
 
 	// 如果路径被修改，重新编码并保存
 	if modified {
+
 		err = critService.Encode(decodedImg)
 		if err != nil {
 			log.G(ctx).Errorf("Failed to encode modified cgroup.img: %v", err)
 			return fmt.Errorf("failed to encode modified cgroup.img: %w", err)
 		}
 
-		// 替换原始文件
-		err = os.Rename(modifiedImgPath, cgroupImgPath)
+		// 确保目标目录存在
+		targetCheckpointDir := filepath.Join("/", bundlePath, "checkpoint")
+		if err := os.MkdirAll(targetCheckpointDir, 0755); err != nil {
+			log.G(ctx).Errorf("Failed to create target checkpoint directory: %v", err)
+			return fmt.Errorf("failed to create target checkpoint directory: %w", err)
+		}
+
+		// 将修改后的文件移动到指定目录中
+		targetCgroupImgPath := filepath.Join(targetCheckpointDir, "cgroup.img")
+		log.G(ctx).Infof("Moving modified cgroup.img to %s", targetCgroupImgPath)
+		err = os.Rename(modifiedImgPath, targetCgroupImgPath)
 		if err != nil {
 			log.G(ctx).Errorf("Failed to replace original cgroup.img with modified version: %v", err)
 			return fmt.Errorf("failed to replace original cgroup.img: %w", err)
 		}
-		log.G(ctx).Infof("Successfully updated cgroup path in cgroup.img")
+		log.G(ctx).Infof("Successfully updated cgroup path in cgroup.img at %s", targetCgroupImgPath)
 	} else {
 		log.G(ctx).Infof("No changes made to cgroup.img")
 	}
