@@ -8,7 +8,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.0
 	github.com/Microsoft/hcsshim v0.10.0-rc.4
 	github.com/checkpoint-restore/checkpointctl v0.0.0-20221220135617-5b24f461ba2f
-	github.com/checkpoint-restore/go-criu/v7 v7.0.0
+	github.com/checkpoint-restore/go-criu/v7 v7.2.0
 	github.com/container-orchestrated-devices/container-device-interface v0.5.1
 	github.com/containerd/aufs v1.0.0
 	github.com/containerd/btrfs v1.0.0
