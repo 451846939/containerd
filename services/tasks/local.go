@@ -25,6 +25,7 @@ import (
 	"github.com/checkpoint-restore/go-criu/v7/crit/images/cgroup"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/oci"
+	"github.com/containerd/continuity/fs"
 	"io"
 	"os"
 	"path"
@@ -404,13 +405,19 @@ func UpdateCgroupPath(ctx context.Context, mountPoint string, bundlePath string)
 			return fmt.Errorf("failed to create target checkpoint directory: %w", err)
 		}
 
-		// 将修改后的文件移动到指定目录中
+		// 将修改后的文件复制到指定目录中
 		targetCgroupImgPath := filepath.Join(targetCheckpointDir, "cgroup.img")
-		log.G(ctx).Infof("Moving modified cgroup.img to %s", targetCgroupImgPath)
-		err = os.Rename(modifiedImgPath, targetCgroupImgPath)
+		log.G(ctx).Infof("Copying modified cgroup.img to target: %s", targetCgroupImgPath)
+		err = fs.CopyFile(modifiedImgPath, targetCgroupImgPath)
 		if err != nil {
-			log.G(ctx).Errorf("Failed to replace original cgroup.img with modified version: %v", err)
-			return fmt.Errorf("failed to replace original cgroup.img: %w", err)
+			log.G(ctx).Errorf("Failed to copy modified cgroup.img to target: %v", err)
+			return fmt.Errorf("failed to copy modified cgroup.img: %w", err)
+		}
+
+		// 删除临时文件
+		if err = os.Remove(modifiedImgPath); err != nil {
+			log.G(ctx).Errorf("Failed to remove temporary modified cgroup.img: %v", err)
+			return fmt.Errorf("failed to remove temporary modified cgroup.img: %w", err)
 		}
 		log.G(ctx).Infof("Successfully updated cgroup path in cgroup.img at %s", targetCgroupImgPath)
 	} else {
