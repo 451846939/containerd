@@ -268,6 +268,11 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 			log.G(ctx).Errorf("UpdateCgroupPath failed %s", err)
 			return nil, err
 		}
+		err = UpdateMountpointsImg(ctx, checkpointPath, bundlePath)
+		if err != nil {
+			log.G(ctx).Errorf("UpdateMountpointsImg failed %s", err)
+			return nil, err
+		}
 		err = containerd.RestoreFileSystemChanges(ctx, bundlePath)
 		if err != nil {
 			log.G(ctx).Errorf("RestoreFileSystemChanges failed %s", err)
