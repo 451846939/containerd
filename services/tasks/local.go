@@ -23,6 +23,7 @@ import (
 	"github.com/checkpoint-restore/go-criu/v7/crit"
 	"github.com/checkpoint-restore/go-criu/v7/crit/cli"
 	"github.com/checkpoint-restore/go-criu/v7/crit/images/cgroup"
+	mnt "github.com/checkpoint-restore/go-criu/v7/crit/images/mnt"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/oci"
 	"github.com/containerd/continuity/fs"
@@ -290,6 +291,7 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		Pid:         pid,
 	}, nil
 }
+
 func UpdateCgroupPath(ctx context.Context, mountPoint string, bundlePath string) error {
 	log.G(ctx).Infof("Updating cgroup path in cgroup.img")
 
@@ -423,6 +425,151 @@ func UpdateCgroupPath(ctx context.Context, mountPoint string, bundlePath string)
 	} else {
 		log.G(ctx).Infof("No changes made to cgroup.img")
 	}
+	return nil
+}
+
+func GetCgroupPaths(ctx context.Context, checkpointPath, bundlePath string) (oldCgroupPath, newCgroupPath string, err error) {
+	dumpSpec := new(oci.Spec)
+	if _, err = crmetadata.ReadJSONFile(dumpSpec, checkpointPath, crmetadata.SpecDumpFile); err != nil {
+		return "", "", fmt.Errorf("failed to read dump spec from %s: %w", checkpointPath, err)
+	}
+	oldCgroupPath = dumpSpec.Linux.CgroupsPath
+
+	config := new(oci.Spec)
+	if _, err = crmetadata.ReadJSONFile(config, bundlePath, "config.json"); err != nil {
+		return "", "", fmt.Errorf("failed to read config.json from %s: %w", bundlePath, err)
+	}
+	newCgroupPath = config.Linux.CgroupsPath
+
+	return oldCgroupPath, newCgroupPath, nil
+}
+
+func UpdateMountpointsImg(ctx context.Context, mountPoint string, bundlePath string) error {
+	log.G(ctx).Info("Updating mountpoints paths in mountpoints img files")
+	oldCgroupPath, newCgroupPath, err := GetCgroupPaths(ctx, mountPoint, bundlePath)
+
+	checkpointMount := filepath.Join("/", mountPoint, "checkpoint")
+	// 使用 oldCgroupPath 和 newCgroupPath 修改 mountpoints-*.img
+
+	// 搜索匹配 mountpoints-*.img 的文件
+	pattern := filepath.Join(checkpointMount, "mountpoints-*.img")
+	mountpointFiles, err := filepath.Glob(pattern)
+	if err != nil {
+		log.G(ctx).Errorf("Failed to glob mountpoints img files: %v", err)
+		return err
+	}
+
+	if len(mountpointFiles) == 0 {
+		log.G(ctx).Infof("No mountpoints-*.img files found under %s", checkpointMount)
+		return nil
+	}
+
+	// 确保目标目录存在
+	targetCheckpointDir := filepath.Join("/", bundlePath, "checkpoint")
+	if err := os.MkdirAll(targetCheckpointDir, 0755); err != nil {
+		log.G(ctx).Errorf("Failed to create target checkpoint directory: %v", err)
+		return fmt.Errorf("failed to create target checkpoint directory: %w", err)
+	}
+
+	for _, mountpointsImgPath := range mountpointFiles {
+		log.G(ctx).Infof("Processing mountpoints img: %s", mountpointsImgPath)
+
+		imgFile, err := os.Open(mountpointsImgPath)
+		if err != nil {
+			log.G(ctx).Errorf("Failed to open mountpoints img for reading: %v", err)
+			return err
+		}
+
+		modifiedImgPath := mountpointsImgPath + ".modified"
+		modifiedFile, err := os.Create(modifiedImgPath)
+		if err != nil {
+			imgFile.Close()
+			log.G(ctx).Errorf("Failed to create modified mountpoints img: %v", err)
+			return err
+		}
+
+		critService := crit.New(imgFile, modifiedFile, "", false, false)
+
+		entryType, err := cli.GetEntryTypeFromImg(imgFile)
+		imgFile.Close()
+		if err != nil {
+			log.G(ctx).Errorf("Failed to get entry type from mountpoints img: %v", err)
+			modifiedFile.Close()
+			return err
+		}
+
+		decodedImg, err := critService.Decode(entryType)
+		if err != nil {
+			log.G(ctx).Errorf("Failed to decode mountpoints img: %v", err)
+			modifiedFile.Close()
+			return err
+		}
+
+		modified := false
+
+		// 遍历 mountpoints entries
+		for _, entry := range decodedImg.Entries {
+			mntsEntry, ok := entry.Message.(*mnt.MntEntry)
+			if !ok {
+				continue
+			}
+
+			// 检查并替换 mountpoint 字段
+			if mntsEntry.GetMountpoint() == oldCgroupPath {
+				log.G(ctx).Infof("Replacing old cgroup path in mountpoint: %s -> %s", mntsEntry.GetMountpoint(), newCgroupPath)
+				mntsEntry.Mountpoint = &newCgroupPath
+				modified = true
+			}
+			// 检查并替换 root 字段
+			if mntsEntry.GetRoot() == oldCgroupPath {
+				log.G(ctx).Infof("Replacing old cgroup path in root: %s -> %s", mntsEntry.GetRoot(), newCgroupPath)
+				mntsEntry.Root = &newCgroupPath
+				modified = true
+			}
+			// 检查并替换 source 字段
+			if mntsEntry.GetSource() == oldCgroupPath {
+				log.G(ctx).Infof("Replacing old cgroup path in source: %s -> %s", mntsEntry.GetSource(), newCgroupPath)
+				mntsEntry.Source = &newCgroupPath
+				modified = true
+			}
+		}
+
+		if modified {
+			// 重新编码并保存到 .modified
+			err = critService.Encode(decodedImg)
+			modifiedFile.Close()
+			if err != nil {
+				log.G(ctx).Errorf("Failed to encode modified mountpoints img: %v", err)
+				return err
+			}
+
+			// 将修改后的文件复制到指定目录中
+			targetMountpointsImgPath := filepath.Join(targetCheckpointDir, filepath.Base(mountpointsImgPath))
+			log.G(ctx).Infof("Copying modified mountpoints img to target: %s", targetMountpointsImgPath)
+			err = fs.CopyFile(modifiedImgPath, targetMountpointsImgPath)
+			if err != nil {
+				log.G(ctx).Errorf("Failed to copy modified mountpoints img to target: %v", err)
+				return err
+			}
+
+			// 删除临时文件
+			if err = os.Remove(modifiedImgPath); err != nil {
+				log.G(ctx).Errorf("Failed to remove temporary modified mountpoints img: %v", err)
+				return err
+			}
+
+			log.G(ctx).Infof("Successfully updated paths in mountpoints img at %s", targetMountpointsImgPath)
+		} else {
+			modifiedFile.Close()
+			// 没有修改则删除修改文件
+			if err = os.Remove(modifiedImgPath); err != nil {
+				log.G(ctx).Warnf("No changes made, but failed to remove temporary file: %v", err)
+			} else {
+				log.G(ctx).Infof("No changes made to mountpoints img: %s", mountpointsImgPath)
+			}
+		}
+	}
+
 	return nil
 }
 
