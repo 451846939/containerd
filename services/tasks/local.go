@@ -261,6 +261,15 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 		containerd.CopyImageDiff(ctx, checkpointPath, bundlePath)
 		log.G(ctx).Infof("CopyImageDiff after checkpointPath is %s", checkpointPath)
 		containerd.PrintListFiles(ctx, bundlePath)
+		rootfs := r.GetRootfs()
+		var overlay *types.Mount
+		log.G(ctx).Infof("rootfs is %v", rootfs)
+		for i := range rootfs {
+			if rootfs[i].Type == "overlay" {
+				overlay = rootfs[i]
+				break
+			}
+		}
 
 		err = UpdateCgroupPath(ctx, checkpointPath, bundlePath)
 
@@ -268,7 +277,7 @@ func (l *local) Create(ctx context.Context, r *api.CreateTaskRequest, _ ...grpc.
 			log.G(ctx).Errorf("UpdateCgroupPath failed %s", err)
 			return nil, err
 		}
-		err = UpdateMountpointsImg(ctx, checkpointPath, bundlePath)
+		err = UpdateMountpointsImg(ctx, checkpointPath, bundlePath, overlay)
 		if err != nil {
 			log.G(ctx).Errorf("UpdateMountpointsImg failed %s", err)
 			return nil, err
@@ -449,7 +458,7 @@ func GetCgroupPaths(ctx context.Context, checkpointPath, bundlePath string) (old
 	return oldCgroupPath, newCgroupPath, nil
 }
 
-func UpdateMountpointsImg(ctx context.Context, checkpointPath string, bundlePath string) error {
+func UpdateMountpointsImg(ctx context.Context, checkpointPath string, bundlePath string, overlay *types.Mount) error {
 	log.G(ctx).Info("Updating mountpoints paths in mountpoints img files")
 
 	// 获取旧/新 cgroup 路径
@@ -476,6 +485,29 @@ func UpdateMountpointsImg(ctx context.Context, checkpointPath string, bundlePath
 	if err := os.MkdirAll(targetCheckpointDir, 0755); err != nil {
 		log.G(ctx).Errorf("Failed to create target checkpoint directory: %v", err)
 		return fmt.Errorf("failed to create target checkpoint directory: %w", err)
+	}
+	// 如果 overlay 不为 nil，尝试构造新的 options
+	var newOptions string
+	if overlay != nil {
+		var lowerDirs string
+		for _, option := range overlay.Options {
+			if strings.HasPrefix(option, "lowerdir=") {
+				lowerDirs = strings.TrimPrefix(option, "lowerdir=")
+				break
+			}
+		}
+		if lowerDirs != "" {
+			newOptions = fmt.Sprintf(
+				"lowerdir=%s,upperdir=%s,workdir=%s",
+				lowerDirs,
+				overlay.Source, // upperdir 来源
+				overlay.Target, // workdir 来源
+			)
+		} else {
+			log.G(ctx).Warn("No lowerdir found in overlay options, skipping options replacement")
+		}
+	} else {
+		log.G(ctx).Warn("Overlay is nil, skipping options replacement")
 	}
 
 	for _, mountpointsImgPath := range mountpointFiles {
@@ -522,6 +554,18 @@ func UpdateMountpointsImg(ctx context.Context, checkpointPath string, bundlePath
 			mntsEntry, ok := entry.Message.(*mnt.MntEntry)
 			if !ok {
 				continue
+			}
+
+			// 如果 overlay
+			if overlay != nil && mntsEntry.GetSource() == "overlay" {
+				log.G(ctx).Infof("Found overlay mount entry: %v", mntsEntry)
+
+				// 替换 options
+				if newOptions != "" {
+					log.G(ctx).Infof("Replacing options: %s -> %s", mntsEntry.GetOptions(), newOptions)
+					mntsEntry.Options = &newOptions
+					modified = true
+				}
 			}
 
 			// 替换 mountpoint
