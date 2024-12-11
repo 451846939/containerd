@@ -489,22 +489,30 @@ func UpdateMountpointsImg(ctx context.Context, checkpointPath string, bundlePath
 	// 如果 overlay 不为 nil，尝试构造新的 options
 	var newOptions string
 	if overlay != nil {
-		var lowerDirs string
+		// 提取 lowerdir, upperdir, workdir
+		var lowerDir, upperDir, workDir string
 		for _, option := range overlay.Options {
 			if strings.HasPrefix(option, "lowerdir=") {
-				lowerDirs = strings.TrimPrefix(option, "lowerdir=")
-				break
+				lowerDir = strings.TrimPrefix(option, "lowerdir=")
+			}
+			if strings.HasPrefix(option, "upperdir=") {
+				upperDir = strings.TrimPrefix(option, "upperdir=")
+			}
+			if strings.HasPrefix(option, "workdir=") {
+				workDir = strings.TrimPrefix(option, "workdir=")
 			}
 		}
-		if lowerDirs != "" {
+
+		// 确保必要的值存在
+		if lowerDir == "" || upperDir == "" || workDir == "" {
+			log.G(ctx).Warn("Incomplete overlay options, skipping options replacement")
+		} else {
 			newOptions = fmt.Sprintf(
 				"lowerdir=%s,upperdir=%s,workdir=%s",
-				lowerDirs,
-				overlay.Source, // upperdir 来源
-				overlay.Target, // workdir 来源
+				lowerDir,
+				upperDir,
+				workDir,
 			)
-		} else {
-			log.G(ctx).Warn("No lowerdir found in overlay options, skipping options replacement")
 		}
 	} else {
 		log.G(ctx).Warn("Overlay is nil, skipping options replacement")
