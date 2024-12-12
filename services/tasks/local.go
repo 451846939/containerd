@@ -361,6 +361,8 @@ func UpdateCgroupPath(ctx context.Context, mountPoint string, bundlePath string)
 		log.G(ctx).Errorf("Failed to decode cgroup.img: %v", err)
 		return fmt.Errorf("failed to decode cgroup.img: %w", err)
 	}
+	oldCgroupPath := cgroupPath
+	newCgroupPath := currentContainerCgroup
 
 	// 遍历并替换路径
 	modified := false
@@ -384,17 +386,62 @@ func UpdateCgroupPath(ctx context.Context, mountPoint string, bundlePath string)
 		// 遍历 Controllers 并修改路径
 		for _, controller := range cgroupEntry.GetControllers() {
 			for _, dir := range controller.GetDirs() {
-				if dir.GetDirName() == cgroupPath {
-					log.G(ctx).Infof("Replacing %s cgroup path in Controller.Dir: %s -> %s", controller.GetCnames(), dir.GetDirName(), currentContainerCgroup)
-					dir.DirName = &currentContainerCgroup
+				dirName := dir.GetDirName()
+				// 基于dirName的前导斜杠情况来决定使用的old/new路径
+				pathToUse := oldCgroupPath
+				newPathToUse := newCgroupPath
+
+				if strings.HasPrefix(dirName, "/") {
+					// 如果dirName有前导/,但oldCgroupPath没有/,则加上
+					if !strings.HasPrefix(pathToUse, "/") {
+						pathToUse = "/" + pathToUse
+					}
+					if !strings.HasPrefix(newPathToUse, "/") {
+						newPathToUse = "/" + newPathToUse
+					}
+				} else {
+					// dirName没有前导/，如果oldCgroupPath有/则去掉
+					if strings.HasPrefix(pathToUse, "/") {
+						pathToUse = strings.TrimPrefix(pathToUse, "/")
+					}
+					if strings.HasPrefix(newPathToUse, "/") {
+						newPathToUse = strings.TrimPrefix(newPathToUse, "/")
+					}
+				}
+				if strings.Contains(dirName, pathToUse) {
+					newName := strings.Replace(dirName, pathToUse, newPathToUse, -1)
+					log.G(ctx).Infof("Replacing %s cgroup path in Controller.Dir: %s -> %s", controller.GetCnames(), dirName, newName)
+					dir.DirName = &newName
 					modified = true
 				}
 
 				// 遍历并修改 children 中的路径
 				for _, child := range dir.GetChildren() {
-					if child.GetDirName() == cgroupPath {
-						log.G(ctx).Infof("Replacing cgroup path in Controller.Dir.Children: %s -> %s", child.GetDirName(), currentContainerCgroup)
-						child.DirName = &currentContainerCgroup
+					childName := child.GetDirName()
+
+					// 针对childName再次判断前导斜杠并调整
+					cPathToUse := oldCgroupPath
+					cNewPathToUse := newCgroupPath
+
+					if strings.HasPrefix(childName, "/") {
+						if !strings.HasPrefix(cPathToUse, "/") {
+							cPathToUse = "/" + cPathToUse
+						}
+						if !strings.HasPrefix(cNewPathToUse, "/") {
+							cNewPathToUse = "/" + cNewPathToUse
+						}
+					} else {
+						if strings.HasPrefix(cPathToUse, "/") {
+							cPathToUse = strings.TrimPrefix(cPathToUse, "/")
+						}
+						if strings.HasPrefix(cNewPathToUse, "/") {
+							cNewPathToUse = strings.TrimPrefix(cNewPathToUse, "/")
+						}
+					}
+					if strings.Contains(childName, cPathToUse) {
+						newChildName := strings.Replace(childName, cPathToUse, cNewPathToUse, -1)
+						log.G(ctx).Infof("Replacing cgroup path in Controller.Dir.Children: %s -> %s", childName, newChildName)
+						child.DirName = &newChildName
 						modified = true
 					}
 				}
