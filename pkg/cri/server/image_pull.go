@@ -95,6 +95,29 @@ import (
 
 // PullImage pulls an image with authentication config.
 func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest) (_ *runtime.PullImageResponse, err error) {
+	sandboxConfig := r.GetSandboxConfig()
+
+	oldImageName, ok := sandboxConfig.Annotations[r.Image.Image]
+	if ok {
+		log.G(ctx).Infof("pull image found checkpoint CheckpointAnnotationName in %v", oldImageName)
+		spec := &runtime.ImageSpec{
+			Image:       oldImageName,
+			Annotations: r.Image.Annotations,
+		}
+		oldImage := &runtime.PullImageRequest{
+			Image:         spec,
+			Auth:          r.Auth,
+			SandboxConfig: sandboxConfig,
+		}
+		_, err = c.pullImage(ctx, oldImage)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return c.pullImage(ctx, r)
+}
+
+func (c *criService) pullImage(ctx context.Context, r *runtime.PullImageRequest) (_ *runtime.PullImageResponse, err error) {
 	span := tracing.SpanFromContext(ctx)
 	defer func() {
 		// TODO: add domain label for imagePulls metrics, and we may need to provide a mechanism
