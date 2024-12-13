@@ -5,6 +5,10 @@ const (
 	// original human-readable name for the container.
 	CheckpointAnnotationName = "io.kubernetes.containerd.annotations.checkpoint.name"
 
+	// CheckpointAnnotationImages is used by Container Checkpoint when creating a checkpoint image to specify the
+	// original images used to create the container.
+	CheckpointAnnotationImages = "io.kubernetes.containerd.annotations.checkpoint.images"
+
 	// CheckpointAnnotationRawImageName is used by Container Checkpoint when
 	// creating a checkpoint image to specify the original unprocessed name of
 	// the image used to create the container (as specified by the user).

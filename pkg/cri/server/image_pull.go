@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -96,24 +97,57 @@ import (
 // PullImage pulls an image with authentication config.
 func (c *criService) PullImage(ctx context.Context, r *runtime.PullImageRequest) (_ *runtime.PullImageResponse, err error) {
 	sandboxConfig := r.GetSandboxConfig()
+	if sandboxConfig == nil || sandboxConfig.Annotations == nil {
+		return nil, fmt.Errorf("sandbox config or annotations is nil")
+	}
 
-	oldImageName, ok := sandboxConfig.Annotations[r.Image.Image]
+	// 定义解析的结构体
+	type PodImage map[string]string
+
+	log.G(ctx).Infof("Checking for checkpoint annotation in SandboxConfig: %v", sandboxConfig.Annotations)
+
+	// 获取 annotations 中的 checkpoint 镜像数据
+	checkpointImages, ok := sandboxConfig.Annotations[annotations.CheckpointAnnotationImages]
 	if ok {
-		log.G(ctx).Infof("pull image found checkpoint CheckpointAnnotationName in %v", oldImageName)
-		spec := &runtime.ImageSpec{
-			Image:       oldImageName,
-			Annotations: r.Image.Annotations,
-		}
-		oldImage := &runtime.PullImageRequest{
-			Image:         spec,
-			Auth:          r.Auth,
-			SandboxConfig: sandboxConfig,
-		}
-		_, err = c.pullImage(ctx, oldImage)
+		log.G(ctx).Infof("Found checkpoint images annotation: %v", checkpointImages)
+
+		// 解析 JSON
+		var podImage PodImage
+		err = json.Unmarshal([]byte(checkpointImages), &podImage)
 		if err != nil {
-			return nil, err
+			log.G(ctx).Errorf("Failed to unmarshal checkpoint images: %v", err)
+			return nil, fmt.Errorf("invalid checkpoint images annotation: %w", err)
+		}
+
+		// 获取旧镜像
+		oldImageName, have := podImage[r.Image.Image]
+		if have {
+			log.G(ctx).Infof("Found old image for checkpoint: %s -> %s", r.Image.Image, oldImageName)
+
+			// 创建新的 PullImageRequest 使用旧镜像
+			spec := &runtime.ImageSpec{
+				Image:       oldImageName,
+				Annotations: r.Image.Annotations,
+			}
+			oldImageRequest := &runtime.PullImageRequest{
+				Image:         spec,
+				Auth:          r.Auth,
+				SandboxConfig: sandboxConfig,
+			}
+
+			// 拉取旧镜像
+			_, err = c.pullImage(ctx, oldImageRequest)
+			if err != nil {
+				log.G(ctx).Errorf("Failed to pull old image %s: %v", oldImageName, err)
+				return nil, fmt.Errorf("failed to pull old image: %w", err)
+			}
+			log.G(ctx).Infof("Successfully pulled old image: %s", oldImageName)
+		} else {
+			log.G(ctx).Infof("No old image found for checkpoint key: %s", r.Image.Image)
 		}
 	}
+
+	// 拉取原始请求中的镜像
 	return c.pullImage(ctx, r)
 }
 
